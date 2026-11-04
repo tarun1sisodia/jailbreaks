@@ -479,25 +479,131 @@ def check_cache_controls(ctx: Ctx) -> List[Finding]:
 
 
 def check_jwt(ctx: Ctx) -> List[Finding]:
+    """JWT security: decode + actually submit forged tokens to test enforcement."""
+    import hashlib
+    import hmac
+
     out: List[Finding] = []
     jwt_re = re.compile(r"eyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}")
-    tokens_to_check = []
+
+    # Collect tokens from pages
+    tokens_to_check: List[Tuple[str, str]] = []
     for p in ctx.pages:
         for m in jwt_re.finditer(p.get("html", "")):
             tokens_to_check.append((p["url"], m.group(0)))
+
+    # Get baseline anon response for auth comparison
+    anon = ctx.http.clone(cookie="").fetch(ctx.base_url, follow=True)
+    anon_text = anon.text if anon else ""
+
+    WEAK_SECRETS = [
+        "secret", "secretkey", "secret_key", "jwt_secret", "jwtsecret",
+        "supersecret", "password", "changeme", "test", "dev", "development",
+        "your-256-bit-secret", "key", "private", "admin", "root", "123456",
+    ]
+
+    def _b64url_enc(b: bytes) -> str:
+        return base64.urlsafe_b64encode(b).rstrip(b"=").decode()
+
+    def _b64url_dec(s: str) -> bytes:
+        s += "=" * (-len(s) % 4)
+        return base64.urlsafe_b64decode(s)
+
+    def _jwt_accepted(name: str, forged: str) -> bool:
+        """Submit forged token and check if accepted (similarity to anon < 0.9)."""
+        test_client = ctx.http.clone(cookie=f"{name}={forged}")
+        r = test_client.fetch(ctx.base_url, follow=True)
+        if not r or r.status >= 400:
+            return False
+        from difflib import SequenceMatcher
+        similarity_to_anon = SequenceMatcher(
+            None, anon_text[:3000], r.text[:3000]
+        ).ratio()
+        return similarity_to_anon < 0.85  # Response meaningfully differs from anon
+
     for url, tok in tokens_to_check[:10]:
-        dec = decode_jwt(tok)
-        if dec:
-            hdr, payload = dec
-            if hdr.get("alg") == "none":
-                out.append(
-                    Finding(
-                        "jwt", "critical", "JWT accepts 'none' algorithm",
-                        url, evidence="Header specifies alg: none",
-                        remediation="Reject unsigned tokens with alg=none.",
+        parts = tok.split(".")
+        if len(parts) != 3:
+            continue
+
+        try:
+            hdr = json.loads(_b64url_dec(parts[0]))
+            payload = json.loads(_b64url_dec(parts[1]))
+        except Exception:
+            continue
+
+        alg = hdr.get("alg", "")
+        cookie_name = "token"  # common fallback
+
+        # 1. alg:none — actually submit
+        if alg != "none":
+            for none_variant in ("none", "None", "NONE"):
+                hdr_none = dict(hdr)
+                hdr_none["alg"] = none_variant
+                header_b64 = _b64url_enc(
+                    json.dumps(hdr_none, separators=(",", ":")).encode())
+                payload_b64 = _b64url_enc(
+                    json.dumps(payload, separators=(",", ":")).encode())
+                forged = f"{header_b64}.{payload_b64}."
+                if _jwt_accepted(cookie_name, forged):
+                    out.append(Finding(
+                        "jwt", "critical",
+                        "JWT accepts 'alg:none' forged token (server-side enforcement missing)",
+                        url,
+                        evidence=f"Submitted {cookie_name}=<forged_none>; server "
+                                 f"returned authenticated-content response",
+                        remediation="Pin accepted algorithms server-side; explicitly "
+                                    "reject 'none'.",
                         phase=2,
-                    )
-                )
+                    ))
+                    break
+
+        # 2. Weak HMAC secret — verify + submit
+        if alg.startswith("HS"):
+            signing_input = f"{parts[0]}.{parts[1]}"
+            for secret in WEAK_SECRETS:
+                hash_fn = {
+                    "HS256": hashlib.sha256,
+                    "HS384": hashlib.sha384,
+                    "HS512": hashlib.sha512,
+                }.get(alg, hashlib.sha256)
+                expected_sig = hmac.new(
+                    secret.encode(), signing_input.encode(), hash_fn).digest()
+                expected_b64 = _b64url_enc(expected_sig)
+                if hmac.compare_digest(expected_b64, parts[2]):
+                    # Signature matches → secret is recoverable
+                    out.append(Finding(
+                        "jwt", "critical",
+                        "JWT signed with guessable HMAC secret",
+                        url,
+                        evidence=f"Recovered secret: {secret!r} (verified via HMAC)",
+                        remediation="Rotate to a random 256-bit secret from a secret "
+                                    "manager.",
+                        phase=2,
+                    ))
+                    break
+
+        # 3. exp claim missing
+        if "exp" not in payload:
+            out.append(Finding(
+                "jwt", "medium", "JWT token lacks expiration ('exp') claim",
+                url,
+                evidence=f"alg={alg}, claims={list(payload.keys())[:6]}",
+                remediation="Always set short-lived 'exp' expiration on issued JWTs.",
+                phase=2,
+            ))
+
+        # 4. PII in payload
+        leaked = [c for c in PII_CLAIMS if c in payload]
+        if leaked:
+            out.append(Finding(
+                "jwt", "low",
+                f"JWT payload contains sensitive PII fields: {', '.join(leaked)}",
+                url, evidence=f"Payload keys: {', '.join(leaked)}",
+                remediation="Avoid storing sensitive PII in client-readable JWT payloads.",
+                phase=2,
+            ))
+
     return out
 
 

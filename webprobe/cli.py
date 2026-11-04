@@ -137,6 +137,25 @@ def build_parser() -> argparse.ArgumentParser:
                          help="Explicit payment webhook endpoint URL")
     g_logic.add_argument("--idempotency-test", action="store_true",
                          help="Enable booking/order creation replay test")
+    g_logic.add_argument("--otp-test", action="store_true",
+                         help="Enable OTP brute-force probe (bounded to --rate-count)")
+    g_logic.add_argument("--race-url", default="",
+                         help="URL for race condition test (POST endpoint)")
+    g_logic.add_argument("--race-data", default="",
+                         help="POST body for race test (JSON string)")
+    g_logic.add_argument("--race-count", type=int, default=20,
+                         help="Number of concurrent requests to fire (default: 20)")
+    g_logic.add_argument("--race-expect", type=int, default=None,
+                         help="Expected number of successes; excess = race condition")
+    g_logic.add_argument("--exploit", action="store_true",
+                         help="Enable exploit chains (React2Shell, middleware "
+                              "bypass, RLS, webhook, race)")
+    g_logic.add_argument("--exploit-rce", action="store_true",
+                         help="Opt-in: prove RCE via React2Shell (runs a "
+                              "command on the server)")
+    g_logic.add_argument("--rce-command", default="id",
+                         help="Command to execute during --exploit-rce proof "
+                              "(default: id)")
 
     # Output Options
     g_out = p.add_argument_group("Output Options")

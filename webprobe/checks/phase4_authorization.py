@@ -273,23 +273,63 @@ def check_tenant_boundary(ctx: Ctx) -> List[Finding]:
 
 
 def check_missing_auth(ctx: Ctx) -> List[Finding]:
-    """Test API endpoints without Authorization or Cookie headers."""
+    """Test API endpoints without auth.
+
+    FIX: exclude static media (jpg/webp/pdf/...) — those are expected to be
+    public. Require JSON content-type and auth-bearing fields in the response.
+    """
+    STATIC_EXTS = (
+        ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".ico",
+        ".css", ".woff", ".woff2", ".ttf", ".eot", ".mp4", ".webm",
+        ".mp3", ".pdf", ".avif", ".map", ".js",
+    )
+    AUTH_FIELDS = re.compile(
+        r'"(?:email|user_id|account_id|session_id|access_token|'
+        r'refresh_token|password_hash|role|admin|is_admin|sub|'
+        r'auth_user|current_user)"\s*:'
+    )
+    PUBLIC_HINTS = (
+        "login", "register", "signup", "forgot", "reset", "public",
+        "auth/v1/token", "auth/v1/signup", "auth/v1/recover",
+        "tour-packages/media", "/media/", "/images/", "/static/",
+        "/assets/", "/health", "/status", "/version",
+    )
+
     out: List[Finding] = []
     anon = ctx.http.clone(cookie="")
+    seen = set()
+
     for u in ctx.endpoints:
-        if "/api/" in u and not any(p in u for p in ("login", "register", "public")):
-            r = anon.fetch(urllib.parse.urljoin(ctx.base_url, u), follow=False)
-            if r and r.status == 200:
-                out.append(
-                    Finding(
-                        "authz", "medium", f"API endpoint reachable without authentication: {u}",
-                        urllib.parse.urljoin(ctx.base_url, u),
-                        evidence=f"HTTP 200 unauthenticated response: {clip(r.text, 120)}",
-                        remediation="Enforce authentication middleware across all /api/* routes.",
-                        phase=4,
-                    )
-                )
-    return out[:5]
+        if not any(prefix in u for prefix in ("/api/", "/rest/", "/v1/", "/v2/")):
+            continue
+        if any(hint in u.lower() for hint in PUBLIC_HINTS):
+            continue
+        sp = urllib.parse.urlsplit(u)
+        if any(sp.path.lower().endswith(ext) for ext in STATIC_EXTS):
+            continue
+        full = urllib.parse.urljoin(ctx.base_url, u)
+        if full in seen:
+            continue
+        seen.add(full)
+
+        r = anon.fetch(full, follow=False)
+        if not r or r.status != 200:
+            continue
+        if "json" not in r.content_type.lower():
+            continue
+        if not AUTH_FIELDS.search(r.text):
+            continue
+        out.append(Finding(
+            "authz", "medium", f"API endpoint returns auth-scoped data without authentication",
+            full,
+            evidence=f"HTTP 200 JSON response with auth-bearing fields "
+                     f"({clip(r.text, 120)})",
+            remediation="Enforce authentication middleware across all non-public /api/* routes.",
+            phase=4,
+        ))
+        if len(out) >= 5:
+            break
+    return out
 
 
 def check_method_tampering(ctx: Ctx) -> List[Finding]:
