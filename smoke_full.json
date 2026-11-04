@@ -1,0 +1,632 @@
+{
+  "metadata": {
+    "target": "http://127.0.0.1:8765",
+    "version": "3.0.0",
+    "profile": "owasp",
+    "duration_seconds": 6.66
+  },
+  "total_findings": 25,
+  "findings": [
+    {
+      "category": "session",
+      "severity": "medium",
+      "title": "Session cookie 'session_id' missing security flags",
+      "url": "http://127.0.0.1:8765",
+      "evidence": "Flags missing: HttpOnly, Secure, SameSite; Set-Cookie: session_id=probe_sess_12345; Path=/",
+      "remediation": "Set 'HttpOnly; Secure; SameSite=Lax' on all session cookies.",
+      "phase": 2,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-1004",
+          "owasp": "A07:2021",
+          "pci": [
+            "6.5.6"
+          ]
+        }
+      }
+    },
+    {
+      "category": "headers",
+      "severity": "low",
+      "title": "Clickjacking protection missing (X-Frame-Options / frame-ancestors absent)",
+      "url": "http://127.0.0.1:8765",
+      "evidence": "X-Frame-Options header absent",
+      "remediation": "Set 'X-Frame-Options: DENY' or CSP frame-ancestors 'none'.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": [
+            "6.5.10"
+          ]
+        }
+      }
+    },
+    {
+      "category": "headers",
+      "severity": "low",
+      "title": "X-Content-Type-Options: nosniff header missing",
+      "url": "http://127.0.0.1:8765",
+      "evidence": "Header: unset",
+      "remediation": "Set 'X-Content-Type-Options: nosniff'.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": [
+            "6.5.10"
+          ]
+        }
+      }
+    },
+    {
+      "category": "headers",
+      "severity": "info",
+      "title": "Referrer-Policy header missing",
+      "url": "http://127.0.0.1:8765",
+      "evidence": "Referrer-Policy header absent",
+      "remediation": "Set 'Referrer-Policy: strict-origin-when-cross-origin'.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": [
+            "6.5.10"
+          ]
+        }
+      }
+    },
+    {
+      "category": "headers",
+      "severity": "info",
+      "title": "Server technology banners disclosed",
+      "url": "http://127.0.0.1:8765",
+      "evidence": "Server: BaseHTTP/0.6 Python/3.12.13",
+      "remediation": "Disable or strip Server and X-Powered-By response headers in reverse proxy configuration.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": [
+            "6.5.10"
+          ]
+        }
+      }
+    },
+    {
+      "category": "files",
+      "severity": "high",
+      "title": "Potentially sensitive file accessible: composer.json",
+      "url": "http://127.0.0.1:8765/composer.json",
+      "evidence": "HTTP 200 (892 bytes)",
+      "remediation": "Remove or restrict access to database dumps and configuration files.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-538",
+          "owasp": "A05:2021",
+          "pci": [
+            "6.5.1"
+          ]
+        }
+      }
+    },
+    {
+      "category": "files",
+      "severity": "high",
+      "title": "Potentially sensitive file accessible: package.json",
+      "url": "http://127.0.0.1:8765/package.json",
+      "evidence": "HTTP 200 (892 bytes)",
+      "remediation": "Remove or restrict access to database dumps and configuration files.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-538",
+          "owasp": "A05:2021",
+          "pci": [
+            "6.5.1"
+          ]
+        }
+      }
+    },
+    {
+      "category": "forced",
+      "severity": "medium",
+      "title": "Administrative path reachable without authentication: /admin",
+      "url": "http://127.0.0.1:8765/admin",
+      "evidence": "HTTP 200 on unauthenticated request",
+      "remediation": "Require authentication for all administration endpoints.",
+      "phase": 4,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-425",
+          "owasp": "A01:2021",
+          "pci": [
+            "6.5.8"
+          ]
+        }
+      }
+    },
+    {
+      "category": "forced",
+      "severity": "medium",
+      "title": "Administrative path reachable without authentication: /admin/dashboard",
+      "url": "http://127.0.0.1:8765/admin/dashboard",
+      "evidence": "HTTP 200 on unauthenticated request",
+      "remediation": "Require authentication for all administration endpoints.",
+      "phase": 4,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-425",
+          "owasp": "A01:2021",
+          "pci": [
+            "6.5.8"
+          ]
+        }
+      }
+    },
+    {
+      "category": "forced",
+      "severity": "medium",
+      "title": "Administrative path reachable without authentication: /admin/users",
+      "url": "http://127.0.0.1:8765/admin/users",
+      "evidence": "HTTP 200 on unauthenticated request",
+      "remediation": "Require authentication for all administration endpoints.",
+      "phase": 4,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-425",
+          "owasp": "A01:2021",
+          "pci": [
+            "6.5.8"
+          ]
+        }
+      }
+    },
+    {
+      "category": "forced",
+      "severity": "medium",
+      "title": "Administrative path reachable without authentication: /admin/settings",
+      "url": "http://127.0.0.1:8765/admin/settings",
+      "evidence": "HTTP 200 on unauthenticated request",
+      "remediation": "Require authentication for all administration endpoints.",
+      "phase": 4,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-425",
+          "owasp": "A01:2021",
+          "pci": [
+            "6.5.8"
+          ]
+        }
+      }
+    },
+    {
+      "category": "forced",
+      "severity": "medium",
+      "title": "Administrative path reachable without authentication: /admin/operations",
+      "url": "http://127.0.0.1:8765/admin/operations",
+      "evidence": "HTTP 200 on unauthenticated request",
+      "remediation": "Require authentication for all administration endpoints.",
+      "phase": 4,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-425",
+          "owasp": "A01:2021",
+          "pci": [
+            "6.5.8"
+          ]
+        }
+      }
+    },
+    {
+      "category": "forced",
+      "severity": "medium",
+      "title": "Administrative path reachable without authentication: /staff",
+      "url": "http://127.0.0.1:8765/staff",
+      "evidence": "HTTP 200 on unauthenticated request",
+      "remediation": "Require authentication for all administration endpoints.",
+      "phase": 4,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-425",
+          "owasp": "A01:2021",
+          "pci": [
+            "6.5.8"
+          ]
+        }
+      }
+    },
+    {
+      "category": "csrf",
+      "severity": "low",
+      "title": "Form missing anti-CSRF token",
+      "url": "http://127.0.0.1:8765/login",
+      "evidence": "Form at http://127.0.0.1:8765 contains inputs ['username', 'password'] without CSRF token",
+      "remediation": "Implement anti-CSRF tokens or SameSite=Lax/Strict cookie protection on POST forms.",
+      "phase": 5,
+      "param": "",
+      "method": "POST",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 5.4,
+          "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "csrf",
+      "severity": "low",
+      "title": "Form missing anti-CSRF token",
+      "url": "http://127.0.0.1:8765/login",
+      "evidence": "Form at http://127.0.0.1:8765/login contains inputs ['username', 'password'] without CSRF token",
+      "remediation": "Implement anti-CSRF tokens or SameSite=Lax/Strict cookie protection on POST forms.",
+      "phase": 5,
+      "param": "",
+      "method": "POST",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 5.4,
+          "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "sqli",
+      "severity": "high",
+      "title": "SQL injection (Error-based)",
+      "url": "http://127.0.0.1:8765/search",
+      "evidence": "SQL error pattern matched: (?i)you have an error in your sql syntax",
+      "remediation": "Parameterize all database queries.",
+      "phase": 3,
+      "param": "q",
+      "method": "GET",
+      "payload": "'",
+      "extra": {
+        "cvss": {
+          "score": 9.8,
+          "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+        },
+        "taxonomy": {
+          "cwe": "CWE-89",
+          "owasp": "A03:2021",
+          "pci": [
+            "6.2.4"
+          ]
+        }
+      }
+    },
+    {
+      "category": "xss",
+      "severity": "high",
+      "title": "Reflected cross-site scripting (XSS)",
+      "url": "http://127.0.0.1:8765/search",
+      "evidence": "Injected payload reflected unencoded in response",
+      "remediation": "Apply context-aware HTML entity encoding on all user inputs.",
+      "phase": 3,
+      "param": "q",
+      "method": "GET",
+      "payload": "\"><script>/*wpxsswg35vb*/</script>",
+      "extra": {
+        "cvss": {
+          "score": 6.1,
+          "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-79",
+          "owasp": "A03:2021",
+          "pci": [
+            "6.5.7"
+          ]
+        }
+      }
+    },
+    {
+      "category": "proto",
+      "severity": "medium",
+      "title": "Potential Prototype Pollution accepted",
+      "url": "http://127.0.0.1:8765/search",
+      "evidence": "Prototype key reflected or accepted without validation",
+      "remediation": "Freeze Object.prototype or sanitize object keys (block __proto__, constructor).",
+      "phase": 3,
+      "param": "q",
+      "method": "GET",
+      "payload": "__proto__[polluted]=true",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-1321",
+          "owasp": "A03:2021",
+          "pci": [
+            "6.2.4"
+          ]
+        }
+      }
+    },
+    {
+      "category": "sqli",
+      "severity": "high",
+      "title": "SQL injection (Error-based)",
+      "url": "http://127.0.0.1:8765/login",
+      "evidence": "SQL error pattern matched: (?i)you have an error in your sql syntax",
+      "remediation": "Parameterize all database queries.",
+      "phase": 3,
+      "param": "password",
+      "method": "POST",
+      "payload": "'--",
+      "extra": {
+        "cvss": {
+          "score": 9.8,
+          "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+        },
+        "taxonomy": {
+          "cwe": "CWE-89",
+          "owasp": "A03:2021",
+          "pci": [
+            "6.2.4"
+          ]
+        }
+      }
+    },
+    {
+      "category": "sqli",
+      "severity": "high",
+      "title": "SQL injection (Error-based)",
+      "url": "http://127.0.0.1:8765/login",
+      "evidence": "SQL error pattern matched: (?i)you have an error in your sql syntax",
+      "remediation": "Parameterize all database queries.",
+      "phase": 3,
+      "param": "username",
+      "method": "POST",
+      "payload": "'--",
+      "extra": {
+        "cvss": {
+          "score": 9.8,
+          "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+        },
+        "taxonomy": {
+          "cwe": "CWE-89",
+          "owasp": "A03:2021",
+          "pci": [
+            "6.2.4"
+          ]
+        }
+      }
+    },
+    {
+      "category": "xss",
+      "severity": "high",
+      "title": "Reflected cross-site scripting (XSS)",
+      "url": "http://127.0.0.1:8765/api/me",
+      "evidence": "Injected payload reflected unencoded in response",
+      "remediation": "Apply context-aware HTML entity encoding on all user inputs.",
+      "phase": 3,
+      "param": "id",
+      "method": "GET",
+      "payload": "\"><script>/*wpxss5jq3nv*/</script>",
+      "extra": {
+        "cvss": {
+          "score": 6.1,
+          "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-79",
+          "owasp": "A03:2021",
+          "pci": [
+            "6.5.7"
+          ]
+        }
+      }
+    },
+    {
+      "category": "proto",
+      "severity": "medium",
+      "title": "Potential Prototype Pollution accepted",
+      "url": "http://127.0.0.1:8765/api/me",
+      "evidence": "Prototype key reflected or accepted without validation",
+      "remediation": "Freeze Object.prototype or sanitize object keys (block __proto__, constructor).",
+      "phase": 3,
+      "param": "id",
+      "method": "GET",
+      "payload": "__proto__[polluted]=true",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-1321",
+          "owasp": "A03:2021",
+          "pci": [
+            "6.2.4"
+          ]
+        }
+      }
+    },
+    {
+      "category": "idor",
+      "severity": "medium",
+      "title": "Potential IDOR on parameter 'id'",
+      "url": "http://127.0.0.1:8765/api/me",
+      "evidence": "Incremented ID 2 returned HTTP 200",
+      "remediation": "Ensure user authorization is validated before fetching object records.",
+      "phase": 4,
+      "param": "id",
+      "method": "GET",
+      "payload": "2",
+      "extra": {
+        "cvss": {
+          "score": 6.5,
+          "vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-639",
+          "owasp": "A01:2021",
+          "pci": [
+            "6.5.8"
+          ]
+        }
+      }
+    },
+    {
+      "category": "xss_ast",
+      "severity": "high",
+      "title": "Reflected XSS (context: html_body)",
+      "url": "http://127.0.0.1:8765/api/me",
+      "evidence": "Payload landed in html_body. Surrounding: ...'e\": \"customer\", \"account_id\": \"acc_\\\\\"\\'><img src=x onerror=WPAST4ro0jkqx()>\", \"balance\": 1500.0, \"name\": \"Test Customer \\\\'",
+      "remediation": "Apply context-aware encoding (HTML entity, JS string escape, URL encode, JSON escape).",
+      "phase": 3,
+      "param": "id",
+      "method": "GET",
+      "payload": "\"'><img src=x onerror=WPAST4ro0jkqx()>",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-79",
+          "owasp": "A03:2021",
+          "pci": [
+            "6.5.7"
+          ]
+        }
+      }
+    },
+    {
+      "category": "xss",
+      "severity": "critical",
+      "title": "Exploit chain: XSS + no HttpOnly \u2192 session hijack",
+      "url": "http://127.0.0.1:8765/search",
+      "evidence": "xss \u2192 Reflected cross-site scripting (XSS) (http://127.0.0.1:8765/search); session \u2192 Session cookie 'session_id' missing security flags (http://127.0.0.1:8765)",
+      "remediation": "Add HttpOnly/Secure/SameSite to all session cookies AND fix XSS output encoding.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 6.1,
+          "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-79",
+          "owasp": "A03:2021",
+          "pci": [
+            "6.5.7"
+          ]
+        }
+      }
+    }
+  ]
+}

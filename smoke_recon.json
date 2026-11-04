@@ -1,0 +1,243 @@
+{
+  "metadata": {
+    "target": "http://127.0.0.1:8765",
+    "version": "3.0.0",
+    "profile": "recon",
+    "duration_seconds": 8.11
+  },
+  "total_findings": 10,
+  "findings": [
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "robots.txt exposed",
+      "url": "http://127.0.0.1:8765/robots.txt",
+      "evidence": "68 bytes; disallowed: /admin, /private, /backup",
+      "remediation": "robots.txt is not access control; protect sensitive paths with authentication.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "security.txt present",
+      "url": "http://127.0.0.1:8765/.well-known/security.txt",
+      "evidence": "contacts: 1; policy: https://example.com/security-policy; expires: 2027-12-31T23:59:59Z",
+      "remediation": "Keep the file current and within its Expires window.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "security.txt present",
+      "url": "http://127.0.0.1:8765/security.txt",
+      "evidence": "contacts: 1; policy: https://example.com/security-policy; expires: 2027-12-31T23:59:59Z",
+      "remediation": "Keep the file current and within its Expires window.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "csp",
+      "severity": "high",
+      "title": "No Content-Security-Policy header",
+      "url": "http://127.0.0.1:8765",
+      "evidence": "CSP header absent; inline script execution unrestricted.",
+      "remediation": "Deploy strict Content-Security-Policy with nonces or hashes.",
+      "phase": 3,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-79",
+          "owasp": "A03:2021",
+          "pci": [
+            "6.5.7"
+          ]
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /api/me",
+      "url": "http://127.0.0.1:8765/api/me",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "1 top-level routes disclosed",
+      "url": "http://127.0.0.1:8765",
+      "evidence": "/admin",
+      "remediation": "Routes are public knowledge; ensure no privileged behaviour is reachable from the client alone.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Interesting path: /admin",
+      "url": "http://127.0.0.1:8765/admin",
+      "evidence": "HTTP 200, 270 bytes, text/html",
+      "remediation": "Remove or authenticate non-public paths; return a uniform 404 for everything else.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Interesting path: /login",
+      "url": "http://127.0.0.1:8765/login",
+      "evidence": "HTTP 200, 421 bytes, text/html",
+      "remediation": "Remove or authenticate non-public paths; return a uniform 404 for everything else.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Interesting path: /robots.txt",
+      "url": "http://127.0.0.1:8765/robots.txt",
+      "evidence": "HTTP 200, 68 bytes, text/plain",
+      "remediation": "Remove or authenticate non-public paths; return a uniform 404 for everything else.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Interesting path: /.well-known/security.txt",
+      "url": "http://127.0.0.1:8765/.well-known/security.txt",
+      "evidence": "HTTP 200, 111 bytes, text/plain",
+      "remediation": "Remove or authenticate non-public paths; return a uniform 404 for everything else.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    }
+  ]
+}

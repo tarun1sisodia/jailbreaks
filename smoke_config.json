@@ -1,0 +1,375 @@
+{
+  "metadata": {
+    "target": "http://127.0.0.1:8765",
+    "version": "3.0.0",
+    "profile": "config",
+    "duration_seconds": 2.05
+  },
+  "total_findings": 15,
+  "findings": [
+    {
+      "category": "headers",
+      "severity": "low",
+      "title": "Clickjacking protection missing (X-Frame-Options / frame-ancestors absent)",
+      "url": "http://127.0.0.1:8765",
+      "evidence": "X-Frame-Options header absent",
+      "remediation": "Set 'X-Frame-Options: DENY' or CSP frame-ancestors 'none'.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": [
+            "6.5.10"
+          ]
+        }
+      }
+    },
+    {
+      "category": "headers",
+      "severity": "low",
+      "title": "X-Content-Type-Options: nosniff header missing",
+      "url": "http://127.0.0.1:8765",
+      "evidence": "Header: unset",
+      "remediation": "Set 'X-Content-Type-Options: nosniff'.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": [
+            "6.5.10"
+          ]
+        }
+      }
+    },
+    {
+      "category": "headers",
+      "severity": "info",
+      "title": "Referrer-Policy header missing",
+      "url": "http://127.0.0.1:8765",
+      "evidence": "Referrer-Policy header absent",
+      "remediation": "Set 'Referrer-Policy: strict-origin-when-cross-origin'.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": [
+            "6.5.10"
+          ]
+        }
+      }
+    },
+    {
+      "category": "headers",
+      "severity": "info",
+      "title": "Server technology banners disclosed",
+      "url": "http://127.0.0.1:8765",
+      "evidence": "Server: BaseHTTP/0.6 Python/3.12.13",
+      "remediation": "Disable or strip Server and X-Powered-By response headers in reverse proxy configuration.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": [
+            "6.5.10"
+          ]
+        }
+      }
+    },
+    {
+      "category": "files",
+      "severity": "high",
+      "title": "Potentially sensitive file accessible: composer.json",
+      "url": "http://127.0.0.1:8765/composer.json",
+      "evidence": "HTTP 200 (892 bytes)",
+      "remediation": "Remove or restrict access to database dumps and configuration files.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-538",
+          "owasp": "A05:2021",
+          "pci": [
+            "6.5.1"
+          ]
+        }
+      }
+    },
+    {
+      "category": "files",
+      "severity": "high",
+      "title": "Potentially sensitive file accessible: package.json",
+      "url": "http://127.0.0.1:8765/package.json",
+      "evidence": "HTTP 200 (892 bytes)",
+      "remediation": "Remove or restrict access to database dumps and configuration files.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-538",
+          "owasp": "A05:2021",
+          "pci": [
+            "6.5.1"
+          ]
+        }
+      }
+    },
+    {
+      "category": "tls",
+      "severity": "high",
+      "title": "Target is not using HTTPS",
+      "url": "http://127.0.0.1:8765",
+      "evidence": "Scheme: http",
+      "remediation": "Enforce HTTPS across all application traffic.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 7.4,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-326",
+          "owasp": "A02:2021",
+          "pci": [
+            "4.2.1"
+          ]
+        }
+      }
+    },
+    {
+      "category": "headers",
+      "severity": "info",
+      "title": "Permissions-Policy header missing",
+      "url": "http://127.0.0.1:8765",
+      "evidence": "Header absent; camera/microphone/geolocation unconstrained by policy",
+      "remediation": "Set 'Permissions-Policy: camera=(), microphone=(), geolocation=()'.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": [
+            "6.5.10"
+          ]
+        }
+      }
+    },
+    {
+      "category": "config",
+      "severity": "medium",
+      "title": "Exposed debug / management endpoint: /debug",
+      "url": "http://127.0.0.1:8765/debug",
+      "evidence": "HTTP 200 returned: <!DOCTYPE html>\n        <html>\n        <head>\n          <title>Vulnerable Testbed Application</title>\n          <script ...",
+      "remediation": "Disable or restrict debug and monitoring endpoints to internal IPs.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "config",
+      "severity": "medium",
+      "title": "Exposed debug / management endpoint: /__debug__",
+      "url": "http://127.0.0.1:8765/__debug__",
+      "evidence": "HTTP 200 returned: <!DOCTYPE html>\n        <html>\n        <head>\n          <title>Vulnerable Testbed Application</title>\n          <script ...",
+      "remediation": "Disable or restrict debug and monitoring endpoints to internal IPs.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "config",
+      "severity": "medium",
+      "title": "Exposed debug / management endpoint: /actuator",
+      "url": "http://127.0.0.1:8765/actuator",
+      "evidence": "HTTP 200 returned: <!DOCTYPE html>\n        <html>\n        <head>\n          <title>Vulnerable Testbed Application</title>\n          <script ...",
+      "remediation": "Disable or restrict debug and monitoring endpoints to internal IPs.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "config",
+      "severity": "medium",
+      "title": "Exposed debug / management endpoint: /actuator/health",
+      "url": "http://127.0.0.1:8765/actuator/health",
+      "evidence": "HTTP 200 returned: <!DOCTYPE html>\n        <html>\n        <head>\n          <title>Vulnerable Testbed Application</title>\n          <script ...",
+      "remediation": "Disable or restrict debug and monitoring endpoints to internal IPs.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "config",
+      "severity": "medium",
+      "title": "Exposed debug / management endpoint: /actuator/env",
+      "url": "http://127.0.0.1:8765/actuator/env",
+      "evidence": "HTTP 200 returned: <!DOCTYPE html>\n        <html>\n        <head>\n          <title>Vulnerable Testbed Application</title>\n          <script ...",
+      "remediation": "Disable or restrict debug and monitoring endpoints to internal IPs.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "config",
+      "severity": "medium",
+      "title": "Exposed debug / management endpoint: /actuator/metrics",
+      "url": "http://127.0.0.1:8765/actuator/metrics",
+      "evidence": "HTTP 200 returned: <!DOCTYPE html>\n        <html>\n        <head>\n          <title>Vulnerable Testbed Application</title>\n          <script ...",
+      "remediation": "Disable or restrict debug and monitoring endpoints to internal IPs.",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "smuggle",
+      "severity": "info",
+      "title": "HTTP/2 smuggling test skipped (pip install h2)",
+      "url": "http://127.0.0.1:8765",
+      "evidence": "",
+      "remediation": "",
+      "phase": 6,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "confidence": "high",
+        "cvss": {
+          "score": 7.4,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-444",
+          "owasp": "A05:2021",
+          "pci": [
+            "6.5.1"
+          ]
+        }
+      }
+    }
+  ]
+}
