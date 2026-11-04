@@ -1,0 +1,51 @@
+{
+  "target": {
+    "base_url": "https://example.com",
+    "admin_url": "https://admin.example.com",
+    "supabase_ref": "https://xyzcompany.supabase.co"
+  },
+  "operational_controls": {
+    "rate_limit_rps": 5.0,
+    "threads": 4,
+    "crawl_depth": 2,
+    "max_pages": 40,
+    "testing_hours": "00:00-23:59",
+    "abort_file": "webprobe.abort",
+    "activity_log": "activity_scan.tsv",
+    "instability_threshold": 0.20,
+    "instability_samples": 50
+  },
+  "credentials": {
+    "customer": {
+      "email": "test-customer@example.internal",
+      "password": "SyntheticTestPassword123!",
+      "cookie": ""
+    },
+    "secondary_customer": {
+      "cookie": ""
+    },
+    "staff": {
+      "cookie": ""
+    },
+    "admin": {
+      "cookie": ""
+    }
+  },
+  "coupons_and_business": {
+    "valid_test_coupon": "TEST_OFFER_10",
+    "expired_coupon": "EXPIRED_TEST_CODE",
+    "ineligible_coupon": "INELIGIBLE_PROMO"
+  },
+  "profiles": [
+    "quick",
+    "recon",
+    "auth",
+    "injection",
+    "authz",
+    "business",
+    "config",
+    "owasp",
+    "full"
+  ]
+}
+

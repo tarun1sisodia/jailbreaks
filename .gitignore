@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.abort
+*.tsv
+*.log
+report.json
+.DS_Store
+Thumbs.db
+
