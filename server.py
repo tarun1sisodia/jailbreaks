@@ -257,3 +257,4 @@ def list_scans(limit: int = 50) -> List[Dict[str, Any]]:
     items = list(SCANS.values())
     items.sort(key=lambda x: x.get("created_at", 0), reverse=True)
     return items[:limit]
+
