@@ -49,6 +49,7 @@ ADMIN_PATHS_P2 = [
     "/admin/operations", "/staff", "/manage", "/dashboard",
     "/api/admin", "/api/v1/admin", "/api/admin/users",
     "/admin/operations/tax.php",
+    "/api/v1/ops/admin/bookings", "/api/v1/ops/admin/audit-logs",
 ]
 
 MFA_URL_RE = re.compile(

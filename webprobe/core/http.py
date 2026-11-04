@@ -116,6 +116,14 @@ class HttpClient:
                 self.ssl_ctx = ssl._create_unverified_context()
 
     def _parse_cookie_header(self, header_val: str) -> None:
+        header_val = header_val.strip()
+        if not header_val:
+            return
+        if header_val.startswith("Bearer ") or (header_val.startswith("eyJ") and ";" not in header_val and "=" not in header_val):
+            token = header_val.split("Bearer ", 1)[-1].strip()
+            self.cookies["token"] = token
+            self.cookies["sb-access-token"] = token
+            return
         for part in header_val.split(";"):
             part = part.strip()
             if "=" in part:
@@ -201,6 +209,21 @@ class HttpClient:
         cookie_str = self._get_cookie_header()
         if cookie_str and "Cookie" not in req_headers:
             req_headers["Cookie"] = cookie_str
+
+        # Auto-propagate Bearer token to Authorization header for modern APIs / SPAs
+        if "Authorization" not in req_headers:
+            raw_c = self.cookie.strip()
+            if raw_c.startswith("Bearer "):
+                req_headers["Authorization"] = raw_c
+            elif raw_c.startswith("eyJ") and ";" not in raw_c and "=" not in raw_c:
+                req_headers["Authorization"] = f"Bearer {raw_c}"
+            elif "authorization" in self.cookies:
+                av = self.cookies["authorization"]
+                req_headers["Authorization"] = av if av.startswith("Bearer ") else f"Bearer {av}"
+            elif "sb-access-token" in self.cookies:
+                req_headers["Authorization"] = f"Bearer {self.cookies['sb-access-token']}"
+            elif "token" in self.cookies and self.cookies["token"].startswith("eyJ"):
+                req_headers["Authorization"] = f"Bearer {self.cookies['token']}"
 
         encoded_data = None
         if data is not None:

@@ -51,6 +51,10 @@ class C:
     def cyan(cls, text: str) -> str:
         return f"{cls.CYAN}{text}{cls.RESET}"
 
+    @classmethod
+    def white(cls, text: str) -> str:
+        return f"{cls.WHITE}{text}{cls.RESET}"
+
 
 def log(msg: str, dim: bool = False, err: bool = False) -> None:
     """Print an operational log message to stderr or stdout."""
