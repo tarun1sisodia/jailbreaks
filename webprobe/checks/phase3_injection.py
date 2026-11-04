@@ -613,3 +613,165 @@ def check_proto(ctx: Ctx, point: Point) -> List[Finding]:
             phase=3,
         )]
     return []
+
+
+# ============ NEW: statistical blind time-based SQLi ============
+def check_blind_time(ctx: Ctx, point: Point) -> List[Finding]:
+    """Blind time-based with baseline noise filtering."""
+    if not getattr(ctx.args, "time_based", False):
+        return []
+
+    # Baseline: 3 plain requests
+    baselines = []
+    for _ in range(3):
+        t0 = time.monotonic()
+        r = point.send(ctx.http, point.orig_value)
+        if r is None:
+            return []
+        baselines.append(time.monotonic() - t0)
+
+    baseline_mean = sum(baselines) / len(baselines)
+    baseline_std = (sum((x - baseline_mean) ** 2 for x in baselines) / len(baselines)) ** 0.5
+
+    # Probes must exceed mean + 5σ to count as a hit
+    probes = [
+        "'; SELECT pg_sleep(5)-- -",
+        "' OR SLEEP(5)-- -",
+        "'; WAITFOR DELAY '0:0:5'-- -",
+        "' AND 1=(SELECT 1 FROM (SELECT SLEEP(5))x)-- -",
+    ]
+
+    for p in probes:
+        t0 = time.monotonic()
+        r = point.send(ctx.http, p)
+        if r is None:
+            continue
+        elapsed = time.monotonic() - t0
+        if elapsed > baseline_mean + max(5 * baseline_std, 4.5):
+            # Re-confirm once
+            t0 = time.monotonic()
+            r2 = point.send(ctx.http, p)
+            elapsed2 = time.monotonic() - t0 if r2 else 0
+            if elapsed2 > baseline_mean + max(5 * baseline_std, 4.5):
+                return [Finding(
+                    "blind_sqli", "critical",
+                    "Blind time-based SQL injection (confirmed 2×)",
+                    point.action, point.method, point.target, p,
+                    evidence=f"baseline={baseline_mean:.2f}s±{baseline_std:.2f}s, "
+                             f"probe1={elapsed:.2f}s, probe2={elapsed2:.2f}s",
+                    remediation="Parameterize queries; cap statement_timeout.",
+                    phase=3,
+                )]
+    return []
+
+
+# ============ NEW: context-aware AST XSS ============
+def check_xss_ast(ctx: Ctx, point: Point) -> List[Finding]:
+    """Analyze exactly WHERE the payload lands and only flag real execution contexts."""
+    marker = "WPAST" + rand_token("", 8)
+    payload = f'"\'><img src=x onerror={marker}()>'
+    r = point.send(ctx.http, payload)
+    if r is None or payload not in r.text:
+        return []
+
+    # Find where it landed
+    idx = r.text.find(payload)
+    window = r.text[max(0, idx - 200): idx + len(payload) + 200]
+
+    # Classify context
+    context = _classify_xss_context(window, payload)
+
+    if context == "safe":
+        return []
+
+    if context in ("html_body", "attribute_unquoted"):
+        # Real XSS — breaks out of a parsing boundary
+        return [Finding(
+            "xss_ast", "high",
+            f"Reflected XSS (context: {context})",
+            point.action, point.method, point.target, payload,
+            evidence=f"Payload landed in {context}. Surrounding: ...{window[-120:]!r}",
+            remediation="Apply context-aware encoding (HTML entity, JS string "
+                        "escape, URL encode, JSON escape).",
+            phase=3,
+        )]
+
+    if context == "inside_script_string":
+        return [Finding(
+            "xss_ast", "critical",
+            "Reflected XSS inside <script> context — can break string literal",
+            point.action, point.method, point.target, payload,
+            evidence=f"Payload landed inside a JavaScript string. "
+                     f"Surrounding: ...{window[-120:]!r}",
+            remediation="Use JSON.stringify or a template that escapes "
+                        "quotes and </script> sequences.",
+            phase=3,
+        )]
+
+    return []
+
+
+def _classify_xss_context(html_window: str, payload: str) -> str:
+    """Return one of: html_body, attribute_unquoted, attribute_quoted,
+    inside_script_string, inside_script_code, safe."""
+    idx = html_window.find(payload)
+    if idx < 0:
+        return "safe"
+
+    before = html_window[:idx]
+
+    # Inside <script>?
+    last_script_open = before.rfind("<script")
+    last_script_close = before.rfind("</script>")
+    if last_script_open > last_script_close:
+        # Inside <script> — is it in a string literal?
+        open_quotes = before.count('"') + before.count("'") + before.count("`")
+        if open_quotes % 2 == 1:
+            return "inside_script_string"
+        return "inside_script_code"
+
+    # Inside a tag?
+    last_lt = before.rfind("<")
+    last_gt = before.rfind(">")
+    if last_lt > last_gt:
+        # We're inside a tag attribute
+        attr_before = before[last_lt:]
+        if '"' in attr_before and attr_before.count('"') % 2 == 0:
+            return "attribute_quoted"
+        if "'" in attr_before and attr_before.count("'") % 2 == 0:
+            return "attribute_quoted"
+        if "=" in attr_before and " " not in attr_before.split("=")[-1]:
+            return "attribute_unquoted"
+
+    # Not inside anything (HTML body) — safe unless payload has raw tag
+    if "<img" in payload.lower() or "<svg" in payload.lower() or "<script" in payload.lower():
+        return "html_body"
+    return "safe"
+
+
+# ============ NEW: unicode / parser desync ============
+def check_unicode_desync(ctx: Ctx, point: Point) -> List[Finding]:
+    """Detect parser differentials via unicode normalization."""
+    probes = [
+        ("fullwidth", "＜script＞alert(1)＜/script＞"),
+        ("nfkc", "\uFF1Cscript\uFF1Ealert(1)\uFF1C/script\uFF1E"),
+        ("zerowidth", "scri\u200Bpt"),
+        ("combining", "s\u0335cript"),
+    ]
+
+    for label, payload in probes:
+        r = point.send(ctx.http, payload)
+        if r is None:
+            continue
+        if payload in r.text and any(tag in r.text for tag in ("<script", "<img", "<svg")):
+            return [Finding(
+                "xss", "medium",
+                f"Unicode normalization desync ({label}) — WAF/backend disagree on decoding",
+                point.action, point.method, point.target, payload,
+                evidence="Server accepted and reflected a unicode-mutated tag "
+                         "while rendering the raw tag elsewhere in the body",
+                remediation="Normalize input to NFKC before validation AND before "
+                            "output encoding. Never rely on WAF alone.",
+                confidence="medium", phase=3,
+            )]
+    return []

@@ -687,3 +687,153 @@ def check_payment_keys(ctx: Ctx) -> List[Finding]:
                     )
     return out
 
+
+
+# ============ NEW: virtual host fuzzing ============
+VHOST_PREFIXES = [
+    "admin", "api", "staging", "dev", "test", "uat", "internal",
+    "dashboard", "manage", "ops", "backend", "app", "portal",
+    "beta", "preview", "sandbox", "qa", "stage",
+]
+
+
+def check_vhost(ctx: Ctx) -> List[Finding]:
+    """Fuzz Host header against the target to find internal virtual hosts."""
+    if not getattr(ctx.args, "vhost_test", False):
+        return []
+    sp = urllib.parse.urlsplit(ctx.base_url)
+    host = sp.hostname
+    if not host:
+        return []
+
+    out: List[Finding] = []
+    baseline = ctx.http.fetch(ctx.base_url, follow=True)
+    baseline_hash = hash(baseline.body) if baseline else None
+
+    for prefix in VHOST_PREFIXES:
+        vhost = f"{prefix}.{host}"
+        r = ctx.http.fetch(ctx.base_url, headers={"Host": vhost}, follow=False)
+        if r is None:
+            continue
+        if r.status in (200, 302, 401, 403) and hash(r.body) != baseline_hash:
+            out.append(Finding(
+                "vhost", "low", f"Virtual host responds: {vhost}",
+                ctx.base_url, payload=f"Host: {vhost}",
+                evidence=f"HTTP {r.status}, {len(r.body)} bytes "
+                         f"(differs from default baseline)",
+                remediation="Ensure the reverse proxy enforces a strict vhost "
+                            "allowlist and does not route unknown Host headers.",
+                confidence="medium", phase=1,
+            ))
+    return out
+
+
+# ============ NEW: favicon hash fingerprint ============
+def check_favicon_hash(ctx: Ctx) -> List[Finding]:
+    """Compute favicon MurmurHash3 for Shodan-style tech matching."""
+    for page in ctx.pages[:1]:
+        html = page.get("html", "")
+        m = re.search(r"""<link[^>]*rel=["'](?:icon|shortcut icon)["'][^>]*href=["']([^"']+)["']""",
+                      html, re.I)
+        if not m:
+            continue
+        icon_url = urllib.parse.urljoin(page["url"], m.group(1))
+        r = ctx.http.fetch(icon_url, follow=True)
+        if r is None or r.status != 200:
+            return []
+        try:
+            import base64 as _b64
+            mmh3 = _import_mmh3()
+            if mmh3 is None:
+                return [Finding(
+                    "recon", "info",
+                    "Favicon fetched but mmh3 not installed (pip install mmh3)",
+                    icon_url, evidence=f"{len(r.body)} bytes",
+                    confidence="high", phase=1,
+                )]
+            encoded = _b64.encodebytes(r.body)
+            hash_val = mmh3.hash(encoded)
+            return [Finding(
+                "recon", "info", f"Favicon MurmurHash3: {hash_val}",
+                icon_url,
+                evidence=f"hash={hash_val}; correlate at shodan.io/search?query=hash:{hash_val}",
+                remediation="No action needed; fingerprint only.",
+                phase=1,
+            )]
+        except Exception:
+            return []
+    return []
+
+
+def _import_mmh3():
+    try:
+        import mmh3  # type: ignore
+        return mmh3
+    except ImportError:
+        return None
+
+
+# ============ NEW: build manifest route extraction ============
+def check_manifest_routes(ctx: Ctx) -> List[Finding]:
+    """Decompile Next.js/Vite/Webpack manifests into the full route tree."""
+    from webprobe.core.manifest import extract_all
+    result = extract_all(ctx)
+    if not result["routes"]:
+        return []
+    routes = result["routes"]
+    for r in routes:
+        full = urllib.parse.urljoin(ctx.base_url, r)
+        if full not in ctx.discovered:
+            ctx.discovered.append(full)
+    return [Finding(
+        "recon", "info",
+        f"Build manifest exposed {len(routes)} routes ({result['framework']})",
+        ctx.base_url,
+        evidence=f"Sample: {', '.join(routes[:10])}. "
+                 f"Sources: {', '.join(s.split('/')[-1] for s in result['sources'][:3])}",
+        remediation="Client-side routes are public; enforce server-side authz on "
+                    "every privileged route.",
+        phase=1,
+    )]
+
+
+# ============ NEW: GraphQL schema reconstruction from JS ============
+def check_graphql_js_schema(ctx: Ctx) -> List[Finding]:
+    """Reconstruct GraphQL schema from client-side fragments/mutations when introspection is off."""
+    js_urls = [s for p in ctx.pages for s in p.get("scripts", []) if s.startswith("http")][:20]
+    fragments: set = set()
+    mutations: set = set()
+    queries: set = set()
+
+    frag_re = re.compile(r"(?:fragment|query|mutation)\s+([A-Za-z_][A-Za-z0-9_]*)", re.I)
+    field_re = re.compile(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\([^)]*\))?\s*(?=[{\\n])")
+
+    for src in js_urls:
+        r = ctx.http.fetch(src, follow=True)
+        if r is None or r.status != 200:
+            continue
+        for m in frag_re.finditer(r.text):
+            word = m.group(0).lower()
+            name = m.group(1)
+            if word.startswith("fragment"):
+                fragments.add(name)
+            elif word.startswith("mutation"):
+                mutations.add(name)
+            elif word.startswith("query"):
+                queries.add(name)
+
+    if not (fragments or mutations or queries):
+        return []
+
+    return [Finding(
+        "graphql", "info",
+        "GraphQL schema fragments recovered from JS (introspection likely off)",
+        ctx.base_url,
+        evidence=f"queries={len(queries)}, mutations={len(mutations)}, "
+                 f"fragments={len(fragments)}. "
+                 f"Mutations: {', '.join(list(mutations)[:8])}",
+        remediation="Introspection being off is good, but the client bundle still "
+                    "exposes the schema. Treat every operation as public and "
+                    "authorize each resolver.",
+        phase=1,
+    )]

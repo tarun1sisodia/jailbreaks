@@ -165,8 +165,6 @@ POINT_CHECKS = {
     "discount_stack": (5, check_discount_stacking),
 }
 
-ALL_CHECKS = sorted(set(GLOBAL_EARLY) | set(GLOBAL_LATE) | set(POINT_CHECKS))
-
 PROFILES = {
     "quick": ["headers", "files", "cors", "sqli", "xss", "ssti", "idor",
               "security_txt", "methods", "session"],
@@ -207,7 +205,7 @@ PROFILES = {
             "idor_resources", "missing_auth", "method_tamper", "graphql_authz",
             "graphql_depth", "role_tamper", "verbose_api", "mass_assign",
             "json_type", "supabase", "supabase_storage"],
-    "full": ALL_CHECKS,
+    "full": [],
 }
 
 PHASE_2_CHECKS = {
@@ -224,6 +222,69 @@ from webprobe.exploits import EXPLOIT_CHECKS, EXPLOIT_PROFILE
 
 GLOBAL_EARLY.update({k: v for k, v in EXPLOIT_CHECKS.items() if v[0] in (6,)})
 GLOBAL_LATE.update({k: v for k, v in EXPLOIT_CHECKS.items() if v[0] not in (6,)})
-ALL_CHECKS = sorted(set(GLOBAL_EARLY) | set(GLOBAL_LATE) | set(POINT_CHECKS))
 PROFILES["exploit"] = EXPLOIT_PROFILE
+
+
+# --- Phase extension registry ---
+from webprobe.checks.phase1_recon import (
+    check_vhost, check_favicon_hash, check_manifest_routes,
+    check_graphql_js_schema,
+)
+from webprobe.checks.phase2_auth import (
+    check_jwt_rs_hs_confusion, check_jwt_jku, check_session_revocation,
+    check_oauth_audit,
+)
+from webprobe.checks.phase3_injection import (
+    check_blind_time, check_xss_ast, check_unicode_desync,
+)
+from webprobe.checks.phase4_authorization import (
+    check_rbac_matrix, check_mass_assign_schema, check_graphql_resolver,
+)
+from webprobe.checks.phase5_business_logic import (
+    check_fsm_workflow, check_numeric_precision, check_idempotency_nonce,
+)
+from webprobe.checks.phase6_infra import (
+    check_h2_smuggling, check_cache_deception, check_cors_dynamic,
+)
+
+GLOBAL_EARLY.update({
+    "vhost": (1, check_vhost),
+    "favicon_hash": (1, check_favicon_hash),
+    "manifest_routes": (1, check_manifest_routes),
+    "graphql_js_schema": (1, check_graphql_js_schema),
+    "jwt_rs_hs": (2, check_jwt_rs_hs_confusion),
+    "jwt_jku": (2, check_jwt_jku),
+    "session_revoke": (2, check_session_revocation),
+    "oauth": (2, check_oauth_audit),
+    "h2_smuggle": (6, check_h2_smuggling),
+    "cache_deception": (6, check_cache_deception),
+    "cors_dynamic": (6, check_cors_dynamic),
+})
+GLOBAL_LATE.update({
+    "rbac_matrix": (4, check_rbac_matrix),
+    "mass_assign_schema": (4, check_mass_assign_schema),
+    "graphql_resolver": (4, check_graphql_resolver),
+    "fsm_workflow": (5, check_fsm_workflow),
+    "idem_nonce": (5, check_idempotency_nonce),
+})
+POINT_CHECKS.update({
+    "blind_time": (3, check_blind_time),
+    "xss_ast": (3, check_xss_ast),
+    "unicode_desync": (3, check_unicode_desync),
+    "num_precision": (5, check_numeric_precision),
+})
+
+PROFILES["owasp"] += ["blind_time", "xss_ast", "rbac_matrix",
+                      "mass_assign_schema", "oauth", "cors_dynamic"]
+PROFILES["recon"] += ["vhost", "favicon_hash", "manifest_routes",
+                      "graphql_js_schema"]
+PROFILES["auth"] += ["jwt_rs_hs", "jwt_jku", "session_revoke", "oauth"]
+PROFILES["injection"] += ["blind_time", "xss_ast", "unicode_desync",
+                          "num_precision"]
+PROFILES["authz"] += ["rbac_matrix", "mass_assign_schema", "graphql_resolver",
+                      "cors_dynamic"]
+PROFILES["business"] += ["fsm_workflow", "idem_nonce", "num_precision"]
+PROFILES["config"] += ["h2_smuggle", "cache_deception"]
+
+ALL_CHECKS = sorted(set(GLOBAL_EARLY) | set(GLOBAL_LATE) | set(POINT_CHECKS))
 PROFILES["full"] = ALL_CHECKS

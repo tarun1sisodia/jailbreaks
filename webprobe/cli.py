@@ -89,6 +89,12 @@ def build_parser() -> argparse.ArgumentParser:
                          help="Maximum endpoints to test for hidden parameters (default: 25)")
     g_crawl.add_argument("--wayback", action="store_true",
                          help="Query Wayback Machine CDX API for historical endpoint seeds")
+    g_crawl.add_argument("--vhost-test", action="store_true",
+                         help="Fuzz Host header against common subdomain prefixes")
+    g_crawl.add_argument("--headless", action="store_true",
+                         help="Use headless Chrome via CDP if available on port 9222")
+    g_crawl.add_argument("--cdp-port", type=int, default=9222,
+                         help="Chrome remote debugging port (default: 9222)")
 
     # Authentication & Identity Controls
     g_auth = p.add_argument_group("Authentication & Identity")
@@ -112,6 +118,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Enable login rate-limiting / lockout probes")
     g_auth.add_argument("--rate-count", type=int, default=6,
                         help="Number of rate-limit probes to fire (default: 6)")
+    g_auth.add_argument("--oauth-test", action="store_true",
+                        help="Audit OAuth/OIDC authorization flow security")
 
     # Extended Injection & Business Logic
     g_logic = p.add_argument_group("Injection & Business Logic")
@@ -129,6 +137,9 @@ def build_parser() -> argparse.ArgumentParser:
                          help="Ineligible test coupon code")
     g_logic.add_argument("--state-url", default="",
                          help="URL prefix for state-transition probes")
+    g_logic.add_argument("--state-precondition", default="",
+                         help="URL to call before state test; if step fails after "
+                              "this is applied, no finding is raised")
     g_logic.add_argument("--state-actions", default="",
                          help="Comma-separated state actions (e.g. cancel,refund,complete)")
     g_logic.add_argument("--refund-url", default="",
@@ -156,6 +167,9 @@ def build_parser() -> argparse.ArgumentParser:
     g_logic.add_argument("--rce-command", default="id",
                          help="Command to execute during --exploit-rce proof "
                               "(default: id)")
+    g_logic.add_argument("--chain", action="store_true", default=True,
+                         help="Chain related findings into compound exploits (default: on)")
+    g_logic.add_argument("--no-chain", dest="chain", action="store_false")
 
     # Output Options
     g_out = p.add_argument_group("Output Options")
@@ -163,6 +177,17 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Save report to file")
     g_out.add_argument("--json", action="store_true",
                        help="Output report in JSON format")
+    g_out.add_argument("--sarif", action="store_true",
+                       help="Emit SARIF 2.1.0 format (in addition to --output)")
+    g_out.add_argument("--sarif-path", default="webprobe.sarif",
+                       help="SARIF output path (default: webprobe.sarif)")
+    g_out.add_argument("--redact", action="store_true", default=True,
+                       help="Redact PII/secrets from evidence (default: on)")
+    g_out.add_argument("--no-redact", dest="redact", action="store_false")
+    g_out.add_argument("--ledger", default="",
+                       help="Append tamper-evident HMAC ledger to this file")
+    g_out.add_argument("--aimd", action="store_true",
+                       help="Adaptive rate limiting (overrides --rate-limit)")
 
     return p
 
@@ -312,6 +337,20 @@ def main(argv: Optional[List[str]] = None) -> int:
         activity=activity,
     )
 
+    if getattr(args, "aimd", False):
+        from webprobe.core.aimd import AIMD
+        aimd = AIMD(initial_rps=args.rate_limit or 5.0)
+        http._aimd = aimd
+        original_fetch = http.fetch
+        def _fetch_with_aimd(url, *a, **kw):
+            aimd.throttle()
+            t0 = time.monotonic()
+            r = original_fetch(url, *a, **kw)
+            aimd.observe(time.monotonic() - t0)
+            return r
+        http.fetch = _fetch_with_aimd
+        print(C.dim(f"[*] AIMD rate limiter active (initial {aimd.rps:.1f} rps)"))
+
     ctx = Ctx(
         http=http,
         args=args,
@@ -419,6 +458,46 @@ def main(argv: Optional[List[str]] = None) -> int:
                     pass
 
     duration = time.monotonic() - t_start
+
+    # Redaction
+    if getattr(args, "redact", True):
+        from webprobe.core.redact import redact_finding
+        for f in findings:
+            redact_finding(f)
+
+    # Enrich with CVSS + taxonomy
+    from webprobe.core import cvss, taxonomy
+    for f in findings:
+        score, vector = cvss.score_for_category(f.category)
+        entry = taxonomy.lookup(f.category)
+        f.extra = getattr(f, "extra", {})
+        f.extra["cvss"] = {"score": score, "vector": vector}
+        f.extra["taxonomy"] = {
+            "cwe": entry["cwe"],
+            "owasp": entry["owasp"],
+            "pci": entry.get("pci", []),
+        }
+
+    # Chain synthesis
+    from webprobe.exploits.chainer import check_exploit_chains
+    findings.extend(check_exploit_chains(ctx, findings))
+
+    # SARIF
+    if getattr(args, "sarif", False):
+        from webprobe.core.sarif import build_sarif
+        sarif_json = build_sarif(findings, target=base_url)
+        with open(args.sarif_path, "w", encoding="utf-8") as fh:
+            fh.write(sarif_json)
+        print(C.green(f"[+] SARIF written to {args.sarif_path}"))
+
+    # HMAC ledger
+    if getattr(args, "ledger", ""):
+        from webprobe.core.ledger import Ledger
+        ledger = Ledger(args.ledger)
+        for f in findings:
+            ledger.append(f.category, f.severity, f.title,
+                          f.evidence[:400], url=f.url)
+        print(C.green(f"[+] Ledger: {args.ledger}"))
 
     # Output formatting
     if args.json:
