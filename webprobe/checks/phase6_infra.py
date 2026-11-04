@@ -505,7 +505,9 @@ def check_debug_flags(ctx: Ctx) -> List[Finding]:
 def check_h2_smuggling(ctx: Ctx) -> List[Finding]:
     """H2.CL / H2.TE probes via raw HTTP/2 (requires h2 package)."""
     try:
-        import h2.connection, h2.config, h2.events
+        import importlib
+        h2_config = importlib.import_module("h2.config")
+        h2_connection = importlib.import_module("h2.connection")
     except ImportError:
         return [Finding(
             "smuggle", "info",
@@ -525,14 +527,15 @@ def check_h2_smuggling(ctx: Ctx) -> List[Finding]:
 
     def _probe(extra_headers, body=b"", label=""):
         try:
-            cfg = h2.config.H2Configuration(client_side=True)
-            conn = h2.connection.H2Connection(config=cfg)
+            cfg = h2_config.H2Configuration(client_side=True)
+            conn = h2_connection.H2Connection(config=cfg)
             raw = socket.create_connection((host, port), timeout=10)
             sctx = ssl.create_default_context()
             if ctx.args.insecure:
                 sctx.check_hostname = False
                 sctx.verify_mode = ssl.CERT_NONE
-            sock = sctx.wrap_socket(raw, server_hostname=host, alpn_protocols=["h2"])
+            sctx.set_alpn_protocols(["h2"])
+            sock = sctx.wrap_socket(raw, server_hostname=host)
 
             conn.initiate_connection()
             sock.sendall(conn.data_to_send())

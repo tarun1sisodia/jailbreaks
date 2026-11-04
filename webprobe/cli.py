@@ -39,8 +39,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("url", nargs="?", default="", help="Target URL (e.g. https://example.com)")
     p.add_argument("--config", default="", help="Path to JSON configuration file (e.g. config/agraskbagheltourandtravels.json)")
-    p.add_argument("--profile", default="quick", choices=list(PROFILES.keys()),
-                   help="Scan profile to execute (default: quick)")
+    p.add_argument("--profile", default="quick",
+                   help=f"Scan profile to execute or comma-separated profiles ({', '.join(PROFILES.keys())}) (default: quick)")
     p.add_argument("--checks", default="",
                    help="Comma-separated check names to run (overrides --profile)")
     p.add_argument("--list-checks", action="store_true",
@@ -325,7 +325,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         requested = [c.strip() for c in args.checks.split(",") if c.strip()]
         checks = [c for c in requested if c in ALL_CHECKS]
     else:
-        checks = PROFILES.get(args.profile, PROFILES["quick"])
+        checks = []
+        for prof in args.profile.split(","):
+            prof = prof.strip()
+            if prof in PROFILES:
+                for c in PROFILES[prof]:
+                    if c not in checks:
+                        checks.append(c)
+        if not checks:
+            checks = PROFILES.get("quick", [])
 
     print(C.bold(f"[*] webprobe v{VERSION} initializing against {base_url}"))
     print(C.dim(f"[*] Profile: {args.profile} ({len(checks)} checks selected)"))

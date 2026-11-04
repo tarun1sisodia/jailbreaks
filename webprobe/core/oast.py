@@ -21,12 +21,13 @@ class OASTBridge:
 
     def __init__(self, backend: str = "webhooksite",
                  poll_interval: float = 3.0,
-                 timeout: float = 300.0):
+                 timeout: float = 300.0,
+                 token: Optional[str] = None):
         self.backend = backend
         self.poll_interval = poll_interval
         self.timeout = timeout
-        self.token: Optional[str] = None
-        self.base_url: Optional[str] = None
+        self.token: Optional[str] = token or None
+        self.base_url: Optional[str] = f"https://webhook.site/{token}" if token else None
         self._hits: List[Dict] = []
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
@@ -39,17 +40,18 @@ class OASTBridge:
         return self
 
     def _start_webhooksite(self) -> None:
-        req = urllib.request.Request(
-            "https://webhook.site/token",
-            method="POST",
-            data=b"{}",
-            headers={"User-Agent": USER_AGENT,
-                     "Content-Type": "application/json"},
-        )
-        with urllib.request.urlopen(req, timeout=15) as r:
-            data = json.loads(r.read())
-            self.token = data["uuid"]
-            self.base_url = f"https://webhook.site/{self.token}"
+        if not self.token:
+            req = urllib.request.Request(
+                "https://webhook.site/token",
+                method="POST",
+                data=b"{}",
+                headers={"User-Agent": USER_AGENT,
+                         "Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=15) as r:
+                data = json.loads(r.read())
+                self.token = data["uuid"]
+        self.base_url = f"https://webhook.site/{self.token}"
         self._thread = threading.Thread(target=self._poll_webhooksite, daemon=True)
         self._thread.start()
 
