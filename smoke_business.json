@@ -1,0 +1,111 @@
+{
+  "metadata": {
+    "target": "http://127.0.0.1:8765",
+    "version": "3.0.0",
+    "profile": "business",
+    "duration_seconds": 0.69
+  },
+  "total_findings": 4,
+  "findings": [
+    {
+      "category": "business",
+      "severity": "critical",
+      "title": "Webhook accepted unauthenticated without signature: /api/razorpay/webhook",
+      "url": "http://127.0.0.1:8765/api/razorpay/webhook",
+      "evidence": "Unsigned payload returned HTTP 200",
+      "remediation": "Enforce HMAC SHA256 signature verification before processing webhook events.",
+      "phase": 5,
+      "param": "",
+      "method": "POST",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-840",
+          "owasp": "A04:2021",
+          "pci": [
+            "6.5.1"
+          ]
+        }
+      }
+    },
+    {
+      "category": "business",
+      "severity": "critical",
+      "title": "Webhook accepted unauthenticated without signature: /razorpay/webhook",
+      "url": "http://127.0.0.1:8765/razorpay/webhook",
+      "evidence": "Unsigned payload returned HTTP 200",
+      "remediation": "Enforce HMAC SHA256 signature verification before processing webhook events.",
+      "phase": 5,
+      "param": "",
+      "method": "POST",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-840",
+          "owasp": "A04:2021",
+          "pci": [
+            "6.5.1"
+          ]
+        }
+      }
+    },
+    {
+      "category": "business",
+      "severity": "critical",
+      "title": "Webhook accepted unauthenticated without signature: /api/webhooks/razorpay",
+      "url": "http://127.0.0.1:8765/api/webhooks/razorpay",
+      "evidence": "Unsigned payload returned HTTP 200",
+      "remediation": "Enforce HMAC SHA256 signature verification before processing webhook events.",
+      "phase": 5,
+      "param": "",
+      "method": "POST",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-840",
+          "owasp": "A04:2021",
+          "pci": [
+            "6.5.1"
+          ]
+        }
+      }
+    },
+    {
+      "category": "business",
+      "severity": "critical",
+      "title": "Webhook accepted unauthenticated without signature: /webhook",
+      "url": "http://127.0.0.1:8765/webhook",
+      "evidence": "Unsigned payload returned HTTP 200",
+      "remediation": "Enforce HMAC SHA256 signature verification before processing webhook events.",
+      "phase": 5,
+      "param": "",
+      "method": "POST",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-840",
+          "owasp": "A04:2021",
+          "pci": [
+            "6.5.1"
+          ]
+        }
+      }
+    }
+  ]
+}

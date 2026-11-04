@@ -1,0 +1,930 @@
+{
+  "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/cos02/schemas/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "webprobe",
+          "version": "3.0.0",
+          "informationUri": "https://github.com/webprobe",
+          "rules": [
+            {
+              "id": "CWE-1004",
+              "name": "Insecuresessioncookie",
+              "shortDescription": {
+                "text": "Insecure session cookie"
+              },
+              "fullDescription": {
+                "text": "Insecure session cookie (A07:2021). Compliance: CWE: CWE-1004, OWASP: A07:2021, PCI-DSS v4.0: 6.5.6"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "A07:2021",
+                  "CWE-1004"
+                ],
+                "precision": "high",
+                "security-severity": "5.0"
+              }
+            },
+            {
+              "id": "CWE-693",
+              "name": "Missingsecurityheader",
+              "shortDescription": {
+                "text": "Missing security header"
+              },
+              "fullDescription": {
+                "text": "Missing security header (A05:2021). Compliance: CWE: CWE-693, OWASP: A05:2021, PCI-DSS v4.0: 6.5.10"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "A05:2021",
+                  "CWE-693"
+                ],
+                "precision": "high",
+                "security-severity": "3.1"
+              }
+            },
+            {
+              "id": "CWE-538",
+              "name": "Exposedfile",
+              "shortDescription": {
+                "text": "Exposed file"
+              },
+              "fullDescription": {
+                "text": "Exposed file (A05:2021). Compliance: CWE: CWE-538, OWASP: A05:2021, PCI-DSS v4.0: 6.5.1"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "A05:2021",
+                  "CWE-538"
+                ],
+                "precision": "high",
+                "security-severity": "5.0"
+              }
+            },
+            {
+              "id": "CWE-425",
+              "name": "Forcedbrowsing",
+              "shortDescription": {
+                "text": "Forced browsing"
+              },
+              "fullDescription": {
+                "text": "Forced browsing (A01:2021). Compliance: CWE: CWE-425, OWASP: A01:2021, PCI-DSS v4.0: 6.5.8"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "A01:2021",
+                  "CWE-425"
+                ],
+                "precision": "high",
+                "security-severity": "5.0"
+              }
+            },
+            {
+              "id": "CWE-89",
+              "name": "SQLinjection",
+              "shortDescription": {
+                "text": "SQL injection"
+              },
+              "fullDescription": {
+                "text": "SQL injection (A03:2021). Compliance: CWE: CWE-89, OWASP: A03:2021, PCI-DSS v4.0: 6.2.4"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "A03:2021",
+                  "CWE-89"
+                ],
+                "precision": "high",
+                "security-severity": "9.8"
+              }
+            },
+            {
+              "id": "CWE-79",
+              "name": "Cross-sitescripting",
+              "shortDescription": {
+                "text": "Cross-site scripting"
+              },
+              "fullDescription": {
+                "text": "Cross-site scripting (A03:2021). Compliance: CWE: CWE-79, OWASP: A03:2021, PCI-DSS v4.0: 6.5.7"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "A03:2021",
+                  "CWE-79"
+                ],
+                "precision": "high",
+                "security-severity": "6.1"
+              }
+            },
+            {
+              "id": "CWE-1321",
+              "name": "Prototypepollution",
+              "shortDescription": {
+                "text": "Prototype pollution"
+              },
+              "fullDescription": {
+                "text": "Prototype pollution (A03:2021). Compliance: CWE: CWE-1321, OWASP: A03:2021, PCI-DSS v4.0: 6.2.4"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "A03:2021",
+                  "CWE-1321"
+                ],
+                "precision": "high",
+                "security-severity": "5.0"
+              }
+            },
+            {
+              "id": "CWE-639",
+              "name": "IDOR/BOLA",
+              "shortDescription": {
+                "text": "IDOR / BOLA"
+              },
+              "fullDescription": {
+                "text": "IDOR / BOLA (A01:2021). Compliance: CWE: CWE-639, OWASP: A01:2021, PCI-DSS v4.0: 6.5.8"
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "A01:2021",
+                  "CWE-639"
+                ],
+                "precision": "high",
+                "security-severity": "6.5"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "CWE-1004",
+          "level": "warning",
+          "message": {
+            "text": "Session cookie 'session_id' missing security flags \u2014 Flags missing: HttpOnly, Secure, SameSite; Set-Cookie: session_id=probe_sess_12345; Path=/"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "phase": 2,
+            "param": "",
+            "payload": "",
+            "remediation": "Set 'HttpOnly; Secure; SameSite=Lax' on all session cookies.",
+            "cvss_score": null,
+            "cvss_vector": null
+          }
+        },
+        {
+          "ruleId": "CWE-693",
+          "level": "note",
+          "message": {
+            "text": "Clickjacking protection missing (X-Frame-Options / frame-ancestors absent) \u2014 X-Frame-Options header absent"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "low",
+            "phase": 6,
+            "param": "",
+            "payload": "",
+            "remediation": "Set 'X-Frame-Options: DENY' or CSP frame-ancestors 'none'.",
+            "cvss_score": 3.1,
+            "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+          }
+        },
+        {
+          "ruleId": "CWE-693",
+          "level": "note",
+          "message": {
+            "text": "X-Content-Type-Options: nosniff header missing \u2014 Header: unset"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "low",
+            "phase": 6,
+            "param": "",
+            "payload": "",
+            "remediation": "Set 'X-Content-Type-Options: nosniff'.",
+            "cvss_score": 3.1,
+            "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+          }
+        },
+        {
+          "ruleId": "CWE-693",
+          "level": "note",
+          "message": {
+            "text": "Referrer-Policy header missing \u2014 Referrer-Policy header absent"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "info",
+            "phase": 6,
+            "param": "",
+            "payload": "",
+            "remediation": "Set 'Referrer-Policy: strict-origin-when-cross-origin'.",
+            "cvss_score": 3.1,
+            "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+          }
+        },
+        {
+          "ruleId": "CWE-693",
+          "level": "note",
+          "message": {
+            "text": "Server technology banners disclosed \u2014 Server: BaseHTTP/0.6 Python/3.12.13"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "info",
+            "phase": 6,
+            "param": "",
+            "payload": "",
+            "remediation": "Disable or strip Server and X-Powered-By response headers in reverse proxy configuration.",
+            "cvss_score": 3.1,
+            "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+          }
+        },
+        {
+          "ruleId": "CWE-538",
+          "level": "error",
+          "message": {
+            "text": "Potentially sensitive file accessible: composer.json \u2014 HTTP 200 (892 bytes)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/composer.json"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765/composer.json"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "phase": 6,
+            "param": "",
+            "payload": "",
+            "remediation": "Remove or restrict access to database dumps and configuration files.",
+            "cvss_score": null,
+            "cvss_vector": null
+          }
+        },
+        {
+          "ruleId": "CWE-538",
+          "level": "error",
+          "message": {
+            "text": "Potentially sensitive file accessible: package.json \u2014 HTTP 200 (892 bytes)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/package.json"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765/package.json"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "phase": 6,
+            "param": "",
+            "payload": "",
+            "remediation": "Remove or restrict access to database dumps and configuration files.",
+            "cvss_score": null,
+            "cvss_vector": null
+          }
+        },
+        {
+          "ruleId": "CWE-425",
+          "level": "warning",
+          "message": {
+            "text": "Administrative path reachable without authentication: /admin \u2014 HTTP 200 on unauthenticated request"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/admin"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765/admin"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "phase": 4,
+            "param": "",
+            "payload": "",
+            "remediation": "Require authentication for all administration endpoints.",
+            "cvss_score": null,
+            "cvss_vector": null
+          }
+        },
+        {
+          "ruleId": "CWE-425",
+          "level": "warning",
+          "message": {
+            "text": "Administrative path reachable without authentication: /admin/dashboard \u2014 HTTP 200 on unauthenticated request"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/admin/dashboard"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765/admin/dashboard"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "phase": 4,
+            "param": "",
+            "payload": "",
+            "remediation": "Require authentication for all administration endpoints.",
+            "cvss_score": null,
+            "cvss_vector": null
+          }
+        },
+        {
+          "ruleId": "CWE-425",
+          "level": "warning",
+          "message": {
+            "text": "Administrative path reachable without authentication: /admin/users \u2014 HTTP 200 on unauthenticated request"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/admin/users"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765/admin/users"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "phase": 4,
+            "param": "",
+            "payload": "",
+            "remediation": "Require authentication for all administration endpoints.",
+            "cvss_score": null,
+            "cvss_vector": null
+          }
+        },
+        {
+          "ruleId": "CWE-425",
+          "level": "warning",
+          "message": {
+            "text": "Administrative path reachable without authentication: /admin/settings \u2014 HTTP 200 on unauthenticated request"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/admin/settings"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765/admin/settings"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "phase": 4,
+            "param": "",
+            "payload": "",
+            "remediation": "Require authentication for all administration endpoints.",
+            "cvss_score": null,
+            "cvss_vector": null
+          }
+        },
+        {
+          "ruleId": "CWE-425",
+          "level": "warning",
+          "message": {
+            "text": "Administrative path reachable without authentication: /admin/operations \u2014 HTTP 200 on unauthenticated request"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/admin/operations"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765/admin/operations"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "phase": 4,
+            "param": "",
+            "payload": "",
+            "remediation": "Require authentication for all administration endpoints.",
+            "cvss_score": null,
+            "cvss_vector": null
+          }
+        },
+        {
+          "ruleId": "CWE-425",
+          "level": "warning",
+          "message": {
+            "text": "Administrative path reachable without authentication: /staff \u2014 HTTP 200 on unauthenticated request"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/staff"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765/staff"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "phase": 4,
+            "param": "",
+            "payload": "",
+            "remediation": "Require authentication for all administration endpoints.",
+            "cvss_score": null,
+            "cvss_vector": null
+          }
+        },
+        {
+          "ruleId": "CWE-693",
+          "level": "note",
+          "message": {
+            "text": "Form missing anti-CSRF token \u2014 Form at http://127.0.0.1:8765 contains inputs ['username', 'password'] without CSRF token"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/login"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "POST http://127.0.0.1:8765/login"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "low",
+            "phase": 5,
+            "param": "",
+            "payload": "",
+            "remediation": "Implement anti-CSRF tokens or SameSite=Lax/Strict cookie protection on POST forms.",
+            "cvss_score": 5.4,
+            "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N"
+          }
+        },
+        {
+          "ruleId": "CWE-693",
+          "level": "note",
+          "message": {
+            "text": "Form missing anti-CSRF token \u2014 Form at http://127.0.0.1:8765/login contains inputs ['username', 'password'] without CSRF token"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/login"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "POST http://127.0.0.1:8765/login"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "low",
+            "phase": 5,
+            "param": "",
+            "payload": "",
+            "remediation": "Implement anti-CSRF tokens or SameSite=Lax/Strict cookie protection on POST forms.",
+            "cvss_score": 5.4,
+            "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N"
+          }
+        },
+        {
+          "ruleId": "CWE-89",
+          "level": "error",
+          "message": {
+            "text": "SQL injection (Error-based) \u2014 SQL error pattern matched: (?i)you have an error in your sql syntax"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/search"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765/search"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "phase": 3,
+            "param": "q",
+            "payload": "'",
+            "remediation": "Parameterize all database queries.",
+            "cvss_score": 9.8,
+            "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+          }
+        },
+        {
+          "ruleId": "CWE-79",
+          "level": "error",
+          "message": {
+            "text": "Reflected cross-site scripting (XSS) \u2014 Injected payload reflected unencoded in response"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/search"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765/search"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "phase": 3,
+            "param": "q",
+            "payload": "\"><script>/*wpxsswg35vb*/</script>",
+            "remediation": "Apply context-aware HTML entity encoding on all user inputs.",
+            "cvss_score": 6.1,
+            "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N"
+          }
+        },
+        {
+          "ruleId": "CWE-1321",
+          "level": "warning",
+          "message": {
+            "text": "Potential Prototype Pollution accepted \u2014 Prototype key reflected or accepted without validation"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/search"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765/search"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "phase": 3,
+            "param": "q",
+            "payload": "__proto__[polluted]=true",
+            "remediation": "Freeze Object.prototype or sanitize object keys (block __proto__, constructor).",
+            "cvss_score": null,
+            "cvss_vector": null
+          }
+        },
+        {
+          "ruleId": "CWE-89",
+          "level": "error",
+          "message": {
+            "text": "SQL injection (Error-based) \u2014 SQL error pattern matched: (?i)you have an error in your sql syntax"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/login"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "POST http://127.0.0.1:8765/login"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "phase": 3,
+            "param": "password",
+            "payload": "'--",
+            "remediation": "Parameterize all database queries.",
+            "cvss_score": 9.8,
+            "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+          }
+        },
+        {
+          "ruleId": "CWE-89",
+          "level": "error",
+          "message": {
+            "text": "SQL injection (Error-based) \u2014 SQL error pattern matched: (?i)you have an error in your sql syntax"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/login"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "POST http://127.0.0.1:8765/login"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "phase": 3,
+            "param": "username",
+            "payload": "'--",
+            "remediation": "Parameterize all database queries.",
+            "cvss_score": 9.8,
+            "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+          }
+        },
+        {
+          "ruleId": "CWE-79",
+          "level": "error",
+          "message": {
+            "text": "Reflected cross-site scripting (XSS) \u2014 Injected payload reflected unencoded in response"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/api/me"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765/api/me"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "phase": 3,
+            "param": "id",
+            "payload": "\"><script>/*wpxss5jq3nv*/</script>",
+            "remediation": "Apply context-aware HTML entity encoding on all user inputs.",
+            "cvss_score": 6.1,
+            "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N"
+          }
+        },
+        {
+          "ruleId": "CWE-1321",
+          "level": "warning",
+          "message": {
+            "text": "Potential Prototype Pollution accepted \u2014 Prototype key reflected or accepted without validation"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/api/me"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765/api/me"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "phase": 3,
+            "param": "id",
+            "payload": "__proto__[polluted]=true",
+            "remediation": "Freeze Object.prototype or sanitize object keys (block __proto__, constructor).",
+            "cvss_score": null,
+            "cvss_vector": null
+          }
+        },
+        {
+          "ruleId": "CWE-639",
+          "level": "warning",
+          "message": {
+            "text": "Potential IDOR on parameter 'id' \u2014 Incremented ID 2 returned HTTP 200"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/api/me"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765/api/me"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "medium",
+            "phase": 4,
+            "param": "id",
+            "payload": "2",
+            "remediation": "Ensure user authorization is validated before fetching object records.",
+            "cvss_score": 6.5,
+            "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N"
+          }
+        },
+        {
+          "ruleId": "CWE-79",
+          "level": "error",
+          "message": {
+            "text": "Reflected XSS (context: html_body) \u2014 Payload landed in html_body. Surrounding: ...'e\": \"customer\", \"account_id\": \"acc_\\\\\"\\'><img src=x onerror=WPAST4ro0jkqx()>\", \"balance\": 1500.0, \"name\": \"Test Customer \\\\'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/api/me"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765/api/me"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "high",
+            "phase": 3,
+            "param": "id",
+            "payload": "\"'><img src=x onerror=WPAST4ro0jkqx()>",
+            "remediation": "Apply context-aware encoding (HTML entity, JS string escape, URL encode, JSON escape).",
+            "cvss_score": null,
+            "cvss_vector": null
+          }
+        },
+        {
+          "ruleId": "CWE-79",
+          "level": "error",
+          "message": {
+            "text": "Exploit chain: XSS + no HttpOnly \u2192 session hijack \u2014 xss \u2192 Reflected cross-site scripting (XSS) (http://127.0.0.1:8765/search); session \u2192 Session cookie 'session_id' missing security flags (http://127.0.0.1:8765)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://127.0.0.1:8765/search"
+                }
+              },
+              "logicalLocations": [
+                {
+                  "fullyQualifiedName": "GET http://127.0.0.1:8765/search"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "severity": "critical",
+            "phase": 6,
+            "param": "",
+            "payload": "",
+            "remediation": "Add HttpOnly/Secure/SameSite to all session cookies AND fix XSS output encoding.",
+            "cvss_score": 6.1,
+            "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N"
+          }
+        }
+      ],
+      "invocations": [
+        {
+          "executionSuccessful": true,
+          "startTimeUtc": "2026-11-04T12:09:34Z",
+          "properties": {
+            "target": "http://127.0.0.1:8765"
+          }
+        }
+      ]
+    }
+  ]
+}
