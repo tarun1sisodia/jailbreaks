@@ -430,3 +430,143 @@ def check_csrf(ctx: Ctx) -> List[Finding]:
                         phase=5,
                     ))
     return out[:3]
+
+
+# ============ NEW: FSM workflow enforcer ============
+def check_fsm_workflow(ctx: Ctx) -> List[Finding]:
+    """Detect workflow state-machine gaps by skipping intermediate steps."""
+    if not getattr(ctx.args, "state_url", ""):
+        return []
+
+    steps = [s.strip() for s in
+             getattr(ctx.args, "state_actions", "").split(",") if s.strip()]
+    if not steps:
+        return []
+
+    customer = get_authed_client(ctx)
+    if not customer:
+        return []
+
+    out: List[Finding] = []
+    base = getattr(ctx.args, "state_url", "")
+
+    precondition_url = getattr(ctx.args, "state_precondition", "")
+    if precondition_url:
+        customer.fetch(precondition_url, "POST", "{}",
+                       headers={"Content-Type": "application/json"}, follow=False)
+
+    # For each step, try calling it as the FIRST call (skipping prerequisites)
+    for step in steps:
+        url = f"{base.rstrip('/')}/{step}"
+        for method in ("POST", "PATCH", "PUT"):
+            r = customer.fetch(url, method,
+                              json.dumps({"action": step}),
+                              headers={"Content-Type": "application/json"},
+                              follow=False)
+            if r and r.status < 400:
+                if not re.search(r"(?i)(invalid|state|transition|precondition|"
+                                r"not allowed|must complete|previous)", r.text[:2000]):
+                    out.append(Finding(
+                        "business", "high",
+                        f"Workflow step `{step}` accepted without prerequisites",
+                        url, method=method,
+                        evidence=f"HTTP {r.status} on direct call; "
+                                 f"response: {clip(r.text, 180)}",
+                        remediation="Model the workflow as an explicit FSM server-side; "
+                                    "reject transitions whose precondition state "
+                                    "is not met.",
+                        confidence="medium", phase=5,
+                    ))
+                    break
+    return out
+
+
+# ============ NEW: numeric precision / overflow ============
+def check_numeric_precision(ctx: Ctx, point: Point) -> List[Finding]:
+    """Detect arithmetic precision, overflow, and negative-value flaws."""
+    if not PRICE_PARAM_RE.search(point.param) and not re.search(
+            r"(?i)(qty|quantity|amount|total|credits)", point.param):
+        return []
+
+    probes = [
+        ("neg_zero", "-0.00"),
+        ("float_overflow", "1e308"),
+        ("int_overflow", "9223372036854775808"),
+        ("tiny", "0.00000001"),
+        ("fraction_split", "0.00001731"),  # prime-like; never a natural price
+        ("negative", "-99999.37"),         # prime-like
+    ]
+
+    base = point.send(ctx.http, point.orig_value)
+    base_text = base.text if base else ""
+
+    for label, val in probes:
+        r = point.send(ctx.http, val)
+        if r is None:
+            continue
+        if r.status < 400 and val in r.text and val not in base_text:
+            return [Finding(
+                "business", "high",
+                f"Numerical boundary accepted ({label}): {point.param}={val}",
+                point.action, point.method, point.target, payload=val,
+                evidence=f"Server accepted {val!r} (HTTP {r.status}) "
+                         f"in a financial parameter",
+                remediation="Validate numeric ranges with bounded decimals "
+                            "(Decimal, not float); reject negatives for "
+                            "non-refundable fields.",
+                confidence="medium", phase=5,
+            )]
+    return []
+
+
+# ============ NEW: idempotency nonce ============
+def check_idempotency_nonce(ctx: Ctx) -> List[Finding]:
+    """Missing Idempotency-Key handling on financial endpoints."""
+    if not getattr(ctx.args, "idempotency_test", False):
+        return []
+
+    customer = get_authed_client(ctx)
+    if not customer:
+        return []
+
+    candidates = [u for u in ctx.discovered
+                  if re.search(r"(?i)(/payment|/charge|/order|/booking|/refund)", u)][:5]
+
+    if not candidates:
+        return []
+
+    out: List[Finding] = []
+    for url in candidates:
+        full = url if url.startswith("http") else urllib.parse.urljoin(ctx.base_url, url)
+        body = json.dumps({"amount": 100, "currency": "INR"})
+        idem_key = "wp-idem-" + rand_token("", 12)
+
+        r1 = customer.fetch(full, "POST", body,
+                           headers={"Content-Type": "application/json",
+                                    "Idempotency-Key": idem_key},
+                           follow=True)
+        r2 = customer.fetch(full, "POST", body,
+                           headers={"Content-Type": "application/json",
+                                    "Idempotency-Key": idem_key},
+                           follow=True)
+        if r1 is None or r2 is None:
+            continue
+
+        id_re = re.compile(r'"(?:id|charge_id|order_id|transaction_id)"\s*:\s*"([^"]+)"')
+        ids = set()
+        for r in (r1, r2):
+            for m in id_re.finditer(r.text):
+                ids.add(m.group(1))
+
+        if len(ids) >= 2:
+            out.append(Finding(
+                "idempotency", "high",
+                "Idempotency-Key ignored on financial endpoint",
+                full, method="POST",
+                evidence=f"Two POSTs with same `Idempotency-Key: {idem_key}` "
+                         f"created distinct IDs: {list(ids)[:3]}",
+                remediation="Store idempotency keys with a unique constraint; "
+                            "return the original result on retry.",
+                confidence="medium", phase=5,
+            ))
+    return out

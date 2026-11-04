@@ -498,3 +498,187 @@ def check_debug_flags(ctx: Ctx) -> List[Finding]:
             break
 
     return out
+
+
+# ============ NEW: HTTP/2 downgrade smuggling ============
+def check_h2_smuggling(ctx: Ctx) -> List[Finding]:
+    """H2.CL / H2.TE probes via raw HTTP/2 (requires h2 package)."""
+    try:
+        import h2.connection, h2.config, h2.events
+    except ImportError:
+        return [Finding(
+            "smuggle", "info",
+            "HTTP/2 smuggling test skipped (pip install h2)",
+            ctx.base_url, confidence="high", phase=6,
+        )]
+
+    sp = urllib.parse.urlsplit(ctx.base_url)
+    if sp.scheme != "https":
+        return []
+    host = sp.hostname
+    port = sp.port or 443
+    if not host:
+        return []
+
+    out: List[Finding] = []
+
+    def _probe(extra_headers, body=b"", label=""):
+        try:
+            cfg = h2.config.H2Configuration(client_side=True)
+            conn = h2.connection.H2Connection(config=cfg)
+            raw = socket.create_connection((host, port), timeout=10)
+            sctx = ssl.create_default_context()
+            if ctx.args.insecure:
+                sctx.check_hostname = False
+                sctx.verify_mode = ssl.CERT_NONE
+            sock = sctx.wrap_socket(raw, server_hostname=host, alpn_protocols=["h2"])
+
+            conn.initiate_connection()
+            sock.sendall(conn.data_to_send())
+            sid = conn.get_next_available_stream_id()
+            headers = [
+                (":method", "POST"), (":scheme", "https"),
+                (":authority", host), (":path", "/"),
+            ] + extra_headers
+            conn.send_headers(sid, headers, end_stream=False)
+            if body:
+                conn.send_data(sid, body, end_stream=True)
+            sock.sendall(conn.data_to_send())
+
+            t0 = time.monotonic()
+            data = sock.recv(4096)
+            elapsed = time.monotonic() - t0
+            sock.close()
+            return data, elapsed
+        except Exception:
+            return None, 0
+
+    # H2.TE: transfer-encoding header is forbidden in H2 but some proxies
+    # pass it through to the backend
+    data, elapsed = _probe([("transfer-encoding", "chunked"),
+                            ("content-length", "6")], b"0\r\n\r\nX")
+    if data and elapsed > 4.0:
+        out.append(Finding(
+            "smuggle", "high",
+            "H2.TE downgrade smuggling (proxy passes TE header to backend)",
+            ctx.base_url, method="POST",
+            evidence=f"probe delayed {elapsed:.1f}s",
+            remediation="Reject client-supplied Transfer-Encoding on HTTP/2; "
+                        "normalize headers at the edge.",
+            confidence="medium", phase=6,
+        ))
+
+    # H2.CL: conflicting content-length on H2 (spec violation)
+    data, elapsed = _probe([("content-length", "0"),
+                            ("content-length", "6")], b"6\r\nX\r\n")
+    if data and elapsed > 4.0:
+        out.append(Finding(
+            "smuggle", "high",
+            "H2.CL downgrade smuggling (conflicting Content-Length)",
+            ctx.base_url, method="POST",
+            evidence=f"probe delayed {elapsed:.1f}s",
+            remediation="Reject duplicate Content-Length at the edge.",
+            confidence="medium", phase=6,
+        ))
+
+    return out
+
+
+# ============ NEW: web cache deception ============
+def check_cache_deception(ctx: Ctx) -> List[Finding]:
+    """Append static extensions to auth pages; check if CDN caches the body."""
+    customer = get_authed_client(ctx)
+    if not customer:
+        return []
+
+    out: List[Finding] = []
+    suffix_candidates = [
+        "/test.css", "/test.js", "/test.png", ";test.css",
+        "/test.css?x=1", "/robots.txt",
+    ]
+
+    for base in ctx.discovered[:5]:
+        if not re.search(r"(?i)(profile|account|dashboard|settings|user|admin)", base):
+            continue
+        for suffix in suffix_candidates:
+            url = base.rstrip("/") + suffix
+            r1 = customer.fetch(url, follow=True)
+            if r1 is None or r1.status != 200:
+                continue
+
+            cache_status = (r1.header("X-Cache") + r1.header("CF-Cache-Status")).lower()
+            age = r1.header("Age")
+            has_content = bool(re.search(
+                r"(?i)(email|phone|account|booking|user_id|order)", r1.text[:5000]))
+
+            if has_content and ("hit" in cache_status or age and age != "0"):
+                out.append(Finding(
+                    "cache_deception", "high",
+                    "Web cache deception on authenticated endpoint",
+                    url,
+                    evidence=f"Appending `{suffix}` returned {len(r1.body)} bytes "
+                             f"of authenticated content with cache headers: "
+                             f"X-Cache={cache_status or 'unset'}, "
+                             f"Age={age or 'unset'}",
+                    remediation="Do not cache responses based on extension. "
+                                "Set Cache-Control: no-store on all authenticated "
+                                "responses. Normalize paths at the edge.",
+                    confidence="medium", phase=6,
+                ))
+                break
+    return out
+
+
+# ============ NEW: dynamic CORS reflection ============
+def check_cors_dynamic(ctx: Ctx) -> List[Finding]:
+    """Try multiple origin patterns to detect trust boundary failures."""
+    host = ctx.base_url.split("://")[-1].split("/")[0]
+    test_origins = [
+        "null",
+        "https://evil.example",
+        "https://attacker.evil.example",
+        # Prefix-based bugs: if server allowlists *.target.com by prefix check
+        f"https://{host}.evil.example",
+        # Suffix bypass
+        f"https://evil{host}",
+        # Unanchored regex bypass
+        "https://target.example.evil.example",
+    ]
+
+    out: List[Finding] = []
+    for origin in test_origins:
+        r = ctx.http.fetch(ctx.base_url, headers={"Origin": origin}, follow=False)
+        if r is None:
+            continue
+        acao = r.header("Access-Control-Allow-Origin")
+        acac = r.header("Access-Control-Allow-Credentials").lower() == "true"
+
+        if acao == origin and acac:
+            out.append(Finding(
+                "cors", "critical",
+                f"CORS reflects untrusted origin with credentials",
+                ctx.base_url,
+                evidence=f"Origin: {origin} → ACAO: {acao}, ACAC: true",
+                remediation="Use an exact-match allowlist for origins. "
+                            "Never reflect arbitrary Origin when ACAC is true.",
+                phase=6,
+            ))
+        elif acao == origin:
+            out.append(Finding(
+                "cors", "medium",
+                f"CORS reflects untrusted origin",
+                ctx.base_url,
+                evidence=f"Origin: {origin} → ACAO: {acao}",
+                remediation="Use an exact-match allowlist.",
+                phase=6,
+            ))
+        elif acao == "*" and acac:
+            out.append(Finding(
+                "cors", "high",
+                "CORS wildcard with credentials",
+                ctx.base_url,
+                evidence="ACAO: * and ACAC: true",
+                remediation="Remove the wildcard or the credentials flag.",
+                phase=6,
+            ))
+    return out

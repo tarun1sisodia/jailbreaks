@@ -499,3 +499,203 @@ def check_forced_browsing(ctx: Ctx) -> List[Finding]:
             )
     return out
 
+
+
+# ============ NEW: RBAC matrix ============
+def _bodies_match_as_same_user(a: str, b: str) -> bool:
+    import json, re
+    try:
+        ja, jb = json.loads(a), json.loads(b)
+    except Exception:
+        return a[:500] == b[:500]
+    if not (isinstance(ja, dict) and isinstance(jb, dict)):
+        return a[:500] == b[:500]
+    # Strip identity-bearing fields before comparison
+    IDENT = re.compile(r"(?i)^(user|user_id|id|email|owner_id|account_id)$")
+    sa = {k: v for k, v in ja.items() if not IDENT.match(k)}
+    sb = {k: v for k, v in jb.items() if not IDENT.match(k)}
+    return sa == sb
+
+
+def check_rbac_matrix(ctx: Ctx) -> List[Finding]:
+    """Test every discovered endpoint across every provided role and flag gaps."""
+    roles = {}
+    for label, flag in (("anon", None),
+                        ("customer", getattr(ctx.args, "cookie", "")),
+                        ("secondary", getattr(ctx.args, "secondary_cookie", "")),
+                        ("staff", getattr(ctx.args, "staff_cookie", "")),
+                        ("admin", getattr(ctx.args, "admin_cookie", ""))):
+        if flag is None:
+            roles[label] = ctx.http.clone(cookie="")
+        elif flag:
+            roles[label] = ctx.http.clone(cookie=flag)
+
+    if len(roles) < 2:
+        return []
+
+    out: List[Finding] = []
+    endpoints = [u if u.startswith("http") else urllib.parse.urljoin(ctx.base_url, u)
+                 for u in ctx.discovered[:30]]
+    endpoints = list(dict.fromkeys(endpoints))
+
+    for url in endpoints:
+        row = {}
+        bodies = {}
+        for label, client in roles.items():
+            r = client.fetch(url, follow=True)
+            if r is None:
+                row[label] = 0
+                continue
+            row[label] = r.status
+            bodies[label] = r.text[:1000]
+
+        # Anon 200 + customer 200 → endpoint has no authz
+        if row.get("anon") == 200 and row.get("customer") == 200:
+            out.append(Finding(
+                "authz", "high",
+                "Endpoint reachable unauthenticated AND authenticated",
+                url,
+                evidence=f"anon HTTP 200; customer HTTP 200",
+                remediation="Require authentication on non-public endpoints; "
+                            "enforce ownership checks on every resource.",
+                phase=4,
+            ))
+            continue
+
+        # Customer and secondary both see 200 with SAME body → no cross-user check
+        if (row.get("customer") == 200 and row.get("secondary") == 200
+                and _bodies_match_as_same_user(bodies.get("customer", ""), bodies.get("secondary", ""))
+                and len(bodies.get("customer", "")) > 200):
+            out.append(Finding(
+                "authz", "high",
+                "Two distinct customers see identical response (IDOR)",
+                url,
+                evidence=f"customer response identical to secondary customer "
+                         f"({len(bodies['customer'])} bytes match)",
+                remediation="Scope every query by the authenticated owner ID.",
+                phase=4,
+            ))
+
+        # Staff and admin both see 200 → staff has admin rights
+        if row.get("staff") == 200 and row.get("admin") == 200:
+            if bodies.get("staff", "")[:500] == bodies.get("admin", "")[:500]:
+                out.append(Finding(
+                    "authz", "medium",
+                    "Staff role has admin-level response",
+                    url,
+                    evidence="staff identity sees same content as admin",
+                    remediation="Separate staff and admin permissions at the "
+                                "backend; do not collapse to 'privileged'.",
+                    phase=4,
+                ))
+    return out
+
+
+# ============ NEW: mass assignment schema discrepancy ============
+def check_mass_assign_schema(ctx: Ctx) -> List[Finding]:
+    """Read a resource, extract internal fields, inject them into update."""
+    customer = get_authed_client(ctx)
+    if not customer:
+        return []
+
+    HIDDEN_FIELDS = ("role", "is_admin", "is_staff", "verified", "credits",
+                     "balance", "tier", "plan", "owner_id", "tenant_id",
+                     "billing_tier", "is_verified")
+
+    resources = []
+    for u in ctx.discovered[:20]:
+        if re.search(r"(?i)(/api|/rest)", u):
+            r = customer.fetch(u, follow=True)
+            if r and r.status == 200 and "json" in r.content_type:
+                try:
+                    data = json.loads(r.text)
+                    if isinstance(data, dict):
+                        resources.append((u, data))
+                    elif isinstance(data, list) and data and isinstance(data[0], dict):
+                        resources.append((u, data[0]))
+                except Exception:
+                    pass
+
+    out: List[Finding] = []
+    for url, sample in resources[:5]:
+        present_hidden = [k for k in HIDDEN_FIELDS if k in sample]
+        if not present_hidden:
+            continue
+
+        tampered = dict(sample)
+        for field in present_hidden:
+            if isinstance(sample[field], bool):
+                tampered[field] = not sample[field]
+            elif isinstance(sample[field], int):
+                tampered[field] = sample[field] + 1
+            elif isinstance(sample[field], str):
+                tampered[field] = "wp" + rand_token("", 6)
+
+        for method in ("PATCH", "PUT", "POST"):
+            r = customer.fetch(url, method, json.dumps(tampered),
+                              headers={"Content-Type": "application/json"},
+                              follow=False)
+            if r and r.status < 400 and any(f in r.text for f in present_hidden):
+                out.append(Finding(
+                    "mass_assign", "critical",
+                    f"Mass assignment: hidden fields written via {method}",
+                    url, method=method,
+                    evidence=f"Sent tampered {present_hidden}, server accepted "
+                             f"(HTTP {r.status})",
+                    remediation="Use response DTOs that whitelist writable "
+                                "fields. Never bind raw request JSON to the model.",
+                    confidence="medium", phase=4,
+                ))
+                break
+    return out
+
+
+# ============ NEW: GraphQL resolver-level authz ============
+def check_graphql_resolver(ctx: Ctx) -> List[Finding]:
+    """Probe nested GraphQL fields with lower-privilege tokens."""
+    customer = get_authed_client(ctx)
+    if not customer:
+        return []
+
+    candidates = [e for e in ctx.endpoints if "graphql" in e.lower()] + \
+                 ["/graphql", "/api/graphql"]
+    out: List[Finding] = []
+
+    for p in dict.fromkeys(candidates):
+        url = urllib.parse.urljoin(ctx.base_url, p)
+        intro = customer.fetch(url, "POST",
+                              json.dumps({"query": "{__schema{types{name fields{name}}}}"}),
+                              headers={"Content-Type": "application/json"})
+        if intro is None or intro.status != 200 or "__schema" not in intro.text:
+            continue
+
+        try:
+            data = json.loads(intro.text)
+        except Exception:
+            continue
+        types = data.get("data", {}).get("__schema", {}).get("types", []) or []
+        for t in types:
+            type_name = t.get("name", "")
+            fields = t.get("fields") or []
+            sensitive = [f["name"] for f in fields
+                         if isinstance(f, dict) and "name" in f and re.search(
+                             r"(?i)(email|phone|admin|role|secret|password|invoice|payment|address|ssn)",
+                             f["name"])]
+            if not sensitive:
+                continue
+            q = f"{{ {type_name.lower()}s {{ {' '.join(sensitive[:3])} }} }}"
+            r = customer.fetch(url, "POST", json.dumps({"query": q}),
+                              headers={"Content-Type": "application/json"})
+            if r and r.status == 200 and "errors" not in r.text[:500]:
+                out.append(Finding(
+                    "graphql_authz", "high",
+                    f"GraphQL resolver exposes sensitive fields on {type_name}",
+                    url, method="POST", payload=q,
+                    evidence=f"Query succeeded with customer token; fields: "
+                             f"{sensitive[:3]}",
+                    remediation="Add per-field resolvers that check authz; "
+                                "never trust top-level query-level auth.",
+                    confidence="medium", phase=4,
+                ))
+                break
+    return out
