@@ -288,7 +288,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         try:
             with open(args.config, "r", encoding="utf-8") as f:
                 cfg = json.load(f)
+                flat_cfg: Dict[str, Any] = {}
                 for k, v in cfg.items():
+                    if isinstance(v, dict):
+                        for sub_k, sub_v in v.items():
+                            flat_cfg[sub_k] = sub_v
+                    else:
+                        flat_cfg[k] = v
+                for k, v in flat_cfg.items():
                     attr = k.replace("-", "_")
                     if hasattr(args, attr):
                         # Config file values do not overwrite explicit CLI arguments
