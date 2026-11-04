@@ -19,6 +19,9 @@ ADMIN_PATHS_P4 = [
     "/admin/operations", "/staff", "/manage", "/dashboard",
     "/api/admin", "/api/v1/admin", "/api/admin/users",
     "/admin/operations/tax.php", "/api/staff", "/internal",
+    "/api/v1/ops/admin/bookings", "/api/v1/ops/admin/audit-logs",
+    "/api/v1/ops/admin/inquiries", "/api/v1/ops/admin/payments",
+    "/api/v1/ops/admin/fare-rules", "/api/v1/ops/admin/refunds",
 ]
 
 COUPON_FIELD_RE = re.compile(r"(?i)(coupon|promo|voucher|discount)")

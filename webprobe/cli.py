@@ -3,6 +3,7 @@ Command Line Interface and execution orchestrator for webprobe.
 """
 
 import argparse
+import json
 import sys
 import time
 import urllib.parse
@@ -37,6 +38,7 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument("url", nargs="?", default="", help="Target URL (e.g. https://example.com)")
+    p.add_argument("--config", default="", help="Path to JSON configuration file (e.g. config/agraskbagheltourandtravels.json)")
     p.add_argument("--profile", default="quick", choices=list(PROFILES.keys()),
                    help="Scan profile to execute (default: quick)")
     p.add_argument("--checks", default="",
@@ -151,16 +153,22 @@ def self_check() -> int:
     print(f"[*] webprobe v{VERSION} self-check...")
     errors: List[str] = []
 
-    # Check that all registered checks are callable
+    # Check that all registered checks are callable and have valid phases [1..6]
     for name, (phase, fn) in GLOBAL_EARLY.items():
         if not callable(fn):
             errors.append(f"GLOBAL_EARLY check '{name}' is not callable")
+        if phase not in (1, 2, 3, 4, 5, 6):
+            errors.append(f"GLOBAL_EARLY check '{name}' has invalid phase {phase}")
     for name, (phase, fn) in GLOBAL_LATE.items():
         if not callable(fn):
             errors.append(f"GLOBAL_LATE check '{name}' is not callable")
+        if phase not in (1, 2, 3, 4, 5, 6):
+            errors.append(f"GLOBAL_LATE check '{name}' has invalid phase {phase}")
     for name, (phase, fn) in POINT_CHECKS.items():
         if not callable(fn):
             errors.append(f"POINT_CHECKS check '{name}' is not callable")
+        if phase not in (1, 2, 3, 4, 5, 6):
+            errors.append(f"POINT_CHECKS check '{name}' has invalid phase {phase}")
 
     # Check profiles
     for prof, checks in PROFILES.items():
@@ -220,9 +228,30 @@ def main(argv: Optional[List[str]] = None) -> int:
         list_checks()
         return 0
 
+    if args.config:
+        try:
+            with open(args.config, "r", encoding="utf-8") as fh:
+                cfg_data = json.load(fh)
+            # Flatten any nested dictionaries
+            flat: Dict[str, Any] = {}
+            for k, v in cfg_data.items():
+                if isinstance(v, dict):
+                    for sub_k, sub_v in v.items():
+                        flat[sub_k] = sub_v
+                else:
+                    flat[k] = v
+            for k, v in flat.items():
+                if hasattr(args, k):
+                    curr = getattr(args, k)
+                    if curr == parser.get_default(k):
+                        setattr(args, k, v)
+        except Exception as e:
+            print(C.red(f"[!] Error loading config file {args.config}: {e}"))
+            return 1
+
     if not args.url:
         parser.print_help()
-        print(C.red("\nError: target URL is required (or run --self-check / --list-checks)."))
+        print(C.red("\nError: target URL is required (or provide via --config / --self-check)."))
         return 1
 
     base_url = ensure_scheme(args.url.strip())
