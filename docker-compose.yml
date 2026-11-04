@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  webprobe-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: webprobe-cloud-service
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - WEBPROBE_REPORTS_DIR=/app/reports
+    volumes:
+      - ./reports:/app/reports
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
