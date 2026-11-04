@@ -1,0 +1,1623 @@
+{
+  "metadata": {
+    "target": "https://agraskbagheltourandtravels.com",
+    "version": "3.0.0",
+    "profile": "recon",
+    "duration_seconds": 61.17
+  },
+  "total_findings": 70,
+  "findings": [
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "robots.txt exposed",
+      "url": "https://agraskbagheltourandtravels.com/robots.txt",
+      "evidence": "1223 bytes; disallowed: /, /book.html, /book, /book/, /book*, /404.html, /design-guide/, /",
+      "remediation": "robots.txt is not access control; protect sensitive paths with authentication.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "sitemap exposed",
+      "url": "https://agraskbagheltourandtravels.com/sitemap.xml",
+      "evidence": "71 urls; first: https://agraskbagheltourandtravels.com/",
+      "remediation": "Ensure sitemap does not enumerate sensitive URLs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "security.txt present",
+      "url": "https://agraskbagheltourandtravels.com/.well-known/security.txt",
+      "evidence": "contacts: 1; policy: https://agraskbagheltourandtravels.com/en/contact/; expires: 2027-10-01T00:00:00.000Z",
+      "remediation": "Keep the file current and within its Expires window.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Infrastructure headers exposed",
+      "url": "https://agraskbagheltourandtravels.com",
+      "evidence": "CF-Ray: a553869ae95c9788-DEL",
+      "remediation": "Strip hop-by-hop and CDN-internal headers at the edge.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "csp",
+      "severity": "medium",
+      "title": "CSP does not restrict inline script",
+      "url": "https://agraskbagheltourandtravels.com",
+      "evidence": "Issues: unsafe-inline without nonce; CSP: default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.googletagmanager.com https://*.googletagmanager.com https://stati...",
+      "remediation": "Remove 'unsafe-inline' and 'unsafe-eval'; enforce nonces.",
+      "phase": 3,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": null,
+          "vector": null
+        },
+        "taxonomy": {
+          "cwe": "CWE-79",
+          "owasp": "A03:2021",
+          "pci": [
+            "6.5.7"
+          ]
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: www.w3.org",
+      "url": "http://www.w3.org/2000/svg",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: api.agraskbagheltourandtravels.com",
+      "url": "https://api.agraskbagheltourandtravels.com/api/v1/tour-packages/media/50c4be58-45fe-43d5-8056-7438e1aefad4.jpg",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: api.agraskbagheltourandtravels.com",
+      "url": "https://api.agraskbagheltourandtravels.com/api/v1/tour-packages/media/baba62e7-3e42-4122-922d-[REDACTED:phone_intl:17\u202698:hee386898]fd9.webp",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: api.agraskbagheltourandtravels.com",
+      "url": "https://api.agraskbagheltourandtravels.com/api/v1/tour-packages/media/e9fbf686-41a1-4773-b6e6-b8cb7bca7b4e.webp",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: commons.wikimedia.org",
+      "url": "https://commons.wikimedia.org/wiki/File:Agra_03-2016_14_Agra_Fort.jpg",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: commons.wikimedia.org",
+      "url": "https://commons.wikimedia.org/wiki/File:All_India_War_Memorial_(INDIA_GATE).jpg",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: commons.wikimedia.org",
+      "url": "https://commons.wikimedia.org/wiki/File:DASHASHWAMEDH_GHAT,_VARANASI.jpg",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: commons.wikimedia.org",
+      "url": "https://commons.wikimedia.org/wiki/File:Fatehpur_Sikri_near_Agra_2016-03_img08.jpg",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: commons.wikimedia.org",
+      "url": "https://commons.wikimedia.org/wiki/File:Hamandir_Sahib_(Golden_Temple).jpg",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: commons.wikimedia.org",
+      "url": "https://commons.wikimedia.org/wiki/File:Hawa_Mahal_Day_View.jpg",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: commons.wikimedia.org",
+      "url": "https://commons.wikimedia.org/wiki/File:Houseboat_at_Kerala_Backwaters.jpg",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: commons.wikimedia.org",
+      "url": "https://commons.wikimedia.org/wiki/File:Jaipur_03-2016_02_Amber_Fort.jpg",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: commons.wikimedia.org",
+      "url": "https://commons.wikimedia.org/wiki/File:Solang_Valley_,Manali,_Himachal_Pardes,_India.JPG",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: commons.wikimedia.org",
+      "url": "https://commons.wikimedia.org/wiki/File:Taj_Mahal_on_a_bright_sunny_day.jpg",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: maps.google.com",
+      "url": "https://maps.google.com/?q=1Nandlalpur%2C+Hathras+Rd%2C+near+Khusum%2C+Nagla%2C+Agra%2C+Uttar+Pradesh+282006",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: maps.google.com",
+      "url": "https://maps.google.com/?q=Taj+Ganj%2C+Agra%2C+Uttar+Pradesh+282001",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: schema.org",
+      "url": "https://schema.org/${a.offers.availability||",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: wa.me",
+      "url": "https://wa.me/${C.whatsapp}",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: wa.me",
+      "url": "https://wa.me/${C.whatsapp}?text=Hello%20Agra%20SK%20Baghel%20Tour%20and%20Travels",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "External host referenced in JS: wa.me",
+      "url": "https://wa.me/${C.whatsapp}?text=Hello%20Agra%20SK%20Baghel%20Tour%20and%20Travels,%20I%20would%20like%20to%20inquire%20about%20a%20booking.",
+      "evidence": "referenced from a client bundle",
+      "remediation": "Confirm non-public hosts are not reachable and do not expose internal APIs.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /404/",
+      "url": "https://agraskbagheltourandtravels.com/404/",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /api/",
+      "url": "https://agraskbagheltourandtravels.com/api/",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /api/v1/bookings",
+      "url": "https://agraskbagheltourandtravels.com/api/v1/bookings",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /api/v1/bookings/${a}",
+      "url": "https://agraskbagheltourandtravels.com/api/v1/bookings/${a}",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /api/v1/bookings/${a}/payment",
+      "url": "https://agraskbagheltourandtravels.com/api/v1/bookings/${a}/payment",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /api/v1/bookings/${a}/verify-payment",
+      "url": "https://agraskbagheltourandtravels.com/api/v1/bookings/${a}/verify-payment",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /api/v1/catalog",
+      "url": "https://agraskbagheltourandtravels.com/api/v1/catalog",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /api/v1/catalog/${a}/${t}",
+      "url": "https://agraskbagheltourandtravels.com/api/v1/catalog/${a}/${t}",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /api/v1/quotes/options",
+      "url": "https://agraskbagheltourandtravels.com/api/v1/quotes/options",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /assets/booking/taj-mahal-480.avif",
+      "url": "https://agraskbagheltourandtravels.com/assets/booking/taj-mahal-480.avif",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /assets/home-hero/${a}-1280.avif",
+      "url": "https://agraskbagheltourandtravels.com/assets/home-hero/${a}-1280.avif",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /assets/home-hero/${a}-1600.avif",
+      "url": "https://agraskbagheltourandtravels.com/assets/home-hero/${a}-1600.avif",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /assets/home-hero/${a}-480.avif",
+      "url": "https://agraskbagheltourandtravels.com/assets/home-hero/${a}-480.avif",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /assets/home-hero/${a}-960.avif",
+      "url": "https://agraskbagheltourandtravels.com/assets/home-hero/${a}-960.avif",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /auth/callback",
+      "url": "https://agraskbagheltourandtravels.com/auth/callback",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /auth/callback/",
+      "url": "https://agraskbagheltourandtravels.com/auth/callback/",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /auth/login",
+      "url": "https://agraskbagheltourandtravels.com/auth/login",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /booking/confirmation",
+      "url": "https://agraskbagheltourandtravels.com/booking/confirmation",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /booking/confirmation.html",
+      "url": "https://agraskbagheltourandtravels.com/booking/confirmation.html",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /cookie-policy/",
+      "url": "https://agraskbagheltourandtravels.com/cookie-policy/",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/",
+      "url": "https://agraskbagheltourandtravels.com/en/",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/${o.en}/",
+      "url": "https://agraskbagheltourandtravels.com/en/${o.en}/",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/about/",
+      "url": "https://agraskbagheltourandtravels.com/en/about/",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/book",
+      "url": "https://agraskbagheltourandtravels.com/en/book",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/contact/",
+      "url": "https://agraskbagheltourandtravels.com/en/contact/",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/faq/",
+      "url": "https://agraskbagheltourandtravels.com/en/faq/",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/fleet/",
+      "url": "https://agraskbagheltourandtravels.com/en/fleet/",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/home/",
+      "url": "https://agraskbagheltourandtravels.com/en/home/",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/monuments",
+      "url": "https://agraskbagheltourandtravels.com/en/monuments",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/monuments/",
+      "url": "https://agraskbagheltourandtravels.com/en/monuments/",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/packages/",
+      "url": "https://agraskbagheltourandtravels.com/en/packages/",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/privacy",
+      "url": "https://agraskbagheltourandtravels.com/en/privacy",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/rent",
+      "url": "https://agraskbagheltourandtravels.com/en/rent",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/rental",
+      "url": "https://agraskbagheltourandtravels.com/en/rental",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/routes/",
+      "url": "https://agraskbagheltourandtravels.com/en/routes/",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/services/",
+      "url": "https://agraskbagheltourandtravels.com/en/services/",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/taxi-rental",
+      "url": "https://agraskbagheltourandtravels.com/en/taxi-rental",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/taxis/rent",
+      "url": "https://agraskbagheltourandtravels.com/en/taxis/rent",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/taxis/rent/",
+      "url": "https://agraskbagheltourandtravels.com/en/taxis/rent/",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Endpoint disclosed in JavaScript: /en/terms",
+      "url": "https://agraskbagheltourandtravels.com/en/terms",
+      "evidence": "extracted from client bundle (1 scripts)",
+      "remediation": "Client-side routes are public; enforce authorization server-side.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "21 top-level routes disclosed",
+      "url": "https://agraskbagheltourandtravels.com",
+      "evidence": "/404, /404.html, /book, /book.html, /booking, /booking-confirmation, /en, /fleet, /index.html, /login, /monuments, /my-bookings, /packages, /rent, /rental, /review, /routes, /services, /sw.js, /taxi-rental",
+      "remediation": "Routes are public knowledge; ensure no privileged behaviour is reachable from the client alone.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Interesting path: /login",
+      "url": "https://agraskbagheltourandtravels.com/login/",
+      "evidence": "HTTP 200, 42245 bytes, text/html",
+      "remediation": "Remove or authenticate non-public paths; return a uniform 404 for everything else.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Interesting path: /robots.txt",
+      "url": "https://agraskbagheltourandtravels.com/robots.txt",
+      "evidence": "HTTP 200, 1223 bytes, text/plain",
+      "remediation": "Remove or authenticate non-public paths; return a uniform 404 for everything else.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Interesting path: /sitemap.xml",
+      "url": "https://agraskbagheltourandtravels.com/sitemap.xml",
+      "evidence": "HTTP 200, 30788 bytes, application/xml",
+      "remediation": "Remove or authenticate non-public paths; return a uniform 404 for everything else.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    },
+    {
+      "category": "recon",
+      "severity": "info",
+      "title": "Interesting path: /.well-known/security.txt",
+      "url": "https://agraskbagheltourandtravels.com/.well-known/security.txt",
+      "evidence": "HTTP 200, 237 bytes, text/plain",
+      "remediation": "Remove or authenticate non-public paths; return a uniform 404 for everything else.",
+      "phase": 1,
+      "param": "",
+      "method": "",
+      "payload": "",
+      "extra": {
+        "cvss": {
+          "score": 3.1,
+          "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N"
+        },
+        "taxonomy": {
+          "cwe": "CWE-693",
+          "owasp": "A05:2021",
+          "pci": []
+        }
+      }
+    }
+  ]
+}
