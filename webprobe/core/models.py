@@ -20,6 +20,7 @@ class Finding:
     param: str = ""
     method: str = ""
     payload: str = ""
+    poc: Optional[Dict[str, Any]] = None
     extra: Dict[str, Any] = field(default_factory=dict)
 
     def __init__(
@@ -35,6 +36,7 @@ class Finding:
         param: str = "",
         method: str = "",
         payload: str = "",
+        poc: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ):
         self.category = category
@@ -58,10 +60,32 @@ class Finding:
             self.method = method
         if payload:
             self.payload = payload
+        self.poc = poc
         self.extra = kwargs
+        self._enrich()
+
+    def _enrich(self) -> None:
+        """Populate CVSS and taxonomy information."""
+        try:
+            from webprobe.core import cvss, taxonomy
+            if "cvss" not in self.extra:
+                score, vector = cvss.score_for_category(self.category)
+                self.extra["cvss"] = {"score": score, "vector": vector}
+            if "taxonomy" not in self.extra:
+                entry = taxonomy.lookup(self.category)
+                self.extra["taxonomy"] = {
+                    "cwe": entry.get("cwe", ""),
+                    "owasp": entry.get("owasp", ""),
+                    "pci": entry.get("pci", []),
+                }
+        except Exception:
+            pass
+
+    def __post_init__(self) -> None:
+        self._enrich()
 
     def to_dict(self) -> Dict[str, Any]:
-        d = {
+        d: Dict[str, Any] = {
             "category": self.category,
             "severity": self.severity,
             "title": self.title,
@@ -73,6 +97,8 @@ class Finding:
             "method": self.method,
             "payload": self.payload,
         }
+        if self.poc is not None:
+            d["poc"] = self.poc
         if self.extra:
             d["extra"] = self.extra
         return d
@@ -88,8 +114,11 @@ class Response:
     text: str = ""
     content_type: str = ""
     elapsed: float = 0.0
+    received_at: float = 0.0
 
     def __post_init__(self) -> None:
+        if not self.received_at:
+            self.received_at = time.time()
         if not self.text and self.body:
             try:
                 self.text = self.body.decode("utf-8", errors="replace")

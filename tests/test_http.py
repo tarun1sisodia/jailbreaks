@@ -47,3 +47,17 @@ def test_http_client_abort(mock_server, http_client):
     import pytest
     with pytest.raises(SystemExit):
         http_client.fetch(base_url + "/")
+
+
+def test_tls_client_delegates(mock_server, http_client):
+    class StubTLSClient:
+        def fetch(self, url, method="GET", data=None, headers=None):
+            return b"TLS response from stub", 200, {"content-type": "text/plain", "x-tls": "custom"}
+
+    stub = StubTLSClient()
+    http_client.set_tls_client(stub)
+    r = http_client.fetch("http://127.0.0.1/anything")
+    assert r is not None
+    assert r.status == 200
+    assert r.text == "TLS response from stub"
+    assert r.header("x-tls") == "custom"

@@ -75,6 +75,7 @@ def crawl(
     extra_seeds: Optional[List[str]] = None,
     max_depth: int = 2,
     max_pages: int = 40,
+    ctx: Optional[Any] = None,
 ) -> Tuple[List[Dict[str, Any]], List[str]]:
     """
     Bounded breadth-first web crawler:
@@ -134,6 +135,27 @@ def crawl(
             if clean_link not in seen:
                 queue.append((clean_link, depth + 1))
 
+    # CDP headless crawl merge and manifest route extraction if ctx is provided
+    if ctx is not None:
+        args = getattr(ctx, "args", None)
+        if getattr(args, "headless", False):
+            try:
+                from webprobe.core import cdp
+                port = getattr(args, "cdp_port", 9222)
+                if cdp.headless_available(port=port):
+                    extra_pages = cdp.auto_crawl(ctx)
+                    pages.extend(extra_pages)
+            except Exception:
+                pass
+        try:
+            from webprobe.core import manifest
+            m_res = manifest.extract_all(ctx)
+            for r in m_res.get("routes", []):
+                full = urllib.parse.urljoin(start, r)
+                discovered.add(full)
+        except Exception:
+            pass
+
     return pages, sorted(discovered)
 
 
@@ -144,7 +166,7 @@ def build_points(
 ) -> List[Point]:
     """
     Build injection points from crawled pages, forms, and discovered URLs.
-    Extracts query parameters and form parameters.
+    Extracts query parameters and form parameters with formfiller synthesis.
     """
     points: List[Point] = []
     seen: Set[Tuple[str, str, str]] = set()
@@ -179,7 +201,13 @@ def build_points(
             action = form.get("action", "")
             method = form.get("method", "GET").upper()
             inputs = form.get("inputs", {})
+            try:
+                from webprobe.core import formfiller
+                filled = formfiller.fill_form(form)
+            except Exception:
+                filled = {}
             for param, val in inputs.items():
+                synth_val = filled.get(param, val) or val
                 key = (action, method, param)
                 if key not in seen:
                     seen.add(key)
@@ -189,10 +217,9 @@ def build_points(
                             method=method,
                             param=param,
                             param_type="body" if method == "POST" else "query",
-                            orig_value=val,
+                            orig_value=synth_val,
                             form_meta=form,
                         )
                     )
 
     return points[:max_points]
-
