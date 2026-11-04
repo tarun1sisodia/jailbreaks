@@ -1,173 +1,80 @@
-"""
-Unified check registries and profile definitions for webprobe.
-"""
-
-from typing import Any, Callable, Dict, List, Tuple
+"""Check registry for webprobe."""
 
 from webprobe.checks.phase1_recon import (
-    check_discovery,
-    check_graphql,
-    check_infra,
-    check_js,
-    check_methods,
-    check_params,
-    check_payment_keys,
-    check_robots,
-    check_security_txt,
-    check_wayback,
+    check_robots, check_security_txt, check_infra, check_methods,
+    check_wayback, check_js, check_graphql, check_discovery,
+    check_params, check_payment_keys,
 )
 from webprobe.checks.phase2_auth import (
-    check_auth_change_csrf,
-    check_bruteforce,
-    check_cache_controls,
-    check_concurrent_sessions,
-    check_default_creds,
-    check_email_change,
-    check_enumeration,
-    check_host_header_reset,
-    check_jwt,
-    check_jwt_expiry,
-    check_jwt_pii,
-    check_login_csrf,
-    check_logout_csrf,
-    check_logout_invalidation,
-    check_mfa_bypass,
-    check_mfa_presence,
-    check_otp_bruteforce,
-    check_password_change,
-    check_password_policy,
-    check_remember_me,
-    check_reset_token,
-    check_session,
-    check_session_fixation,
-    check_supabase,
-    check_token_in_url,
+    check_password_policy, check_enumeration, check_bruteforce,
+    check_default_creds, check_reset_token, check_host_header_reset,
+    check_session_fixation, check_logout_invalidation,
+    check_concurrent_sessions, check_remember_me, check_token_in_url,
+    check_cache_controls, check_jwt, check_jwt_expiry, check_jwt_pii,
+    check_login_csrf, check_logout_csrf, check_auth_change_csrf,
+    check_mfa_presence, check_mfa_bypass, check_otp_bruteforce,
+    check_supabase, check_password_change, check_email_change, check_session,
 )
 from webprobe.checks.phase3_injection import (
-    check_cmdi,
-    check_crlf,
-    check_csp_effective,
-    check_graphql_depth,
-    check_host_header_injection,
-    check_json_types,
-    check_lfi,
-    check_mass_assignment,
-    check_nosql,
-    check_nosql_authbypass,
-    check_nosql_types,
-    check_proto,
-    check_sqli,
-    check_sqli_second_order,
-    check_sqli_stacked,
-    check_sqli_union,
-    check_ssrf,
-    check_ssti,
-    check_upload,
-    check_xss,
-    check_xss_dom,
-    check_xss_stored,
+    check_sqli, check_sqli_union, check_sqli_stacked, check_sqli_second_order,
+    check_nosql, check_nosql_types, check_nosql_authbypass,
+    check_xss, check_xss_stored, check_xss_dom,
+    check_csp_effective, check_ssti, check_cmdi, check_lfi, check_ssrf,
+    check_proto, check_upload, check_crlf, check_host_header_injection,
+    check_mass_assignment, check_json_types, check_graphql_depth,
 )
 from webprobe.checks.phase4_authorization import (
-    check_authz_customer,
-    check_cors,
-    check_coupon_authz,
-    check_error_leak,
-    check_forced_browsing,
-    check_graphql_authz,
-    check_idor,
-    check_idor_resources,
-    check_mass_assignment_implicit,
-    check_method_tampering,
-    check_missing_auth,
+    check_idor, check_idor_resources, check_idor_multi,
+    check_authz_customer, check_vertical_escalation, check_staff_to_admin,
+    check_ui_only_bypass, check_role_tampering, check_forced_browsing,
+    check_workflow_bypass, check_state_transitions,
+    check_refund_authz, check_tenant_boundary,
+    check_missing_auth, check_method_tampering, check_graphql_authz,
+    check_error_leak, check_verbose_api, check_coupon_authz,
+    check_supabase_storage, check_cors, check_mass_assignment_implicit,
     check_payment_tampering,
-    check_refund_authz,
-    check_role_tampering,
-    check_staff_to_admin,
-    check_state_transitions,
-    check_supabase_storage,
-    check_tenant_boundary,
-    check_ui_only_bypass,
-    check_verbose_api,
-    check_workflow_bypass,
 )
 from webprobe.checks.phase5_business_logic import (
-    check_booking_ref,
-    check_business_rate,
-    check_callback_security,
-    check_cart_storage,
-    check_coupon_enum,
-    check_coupon_rules,
-    check_coupon_tamper,
-    check_csrf,
-    check_discount_stacking,
-    check_duplicate_submit,
-    check_idempotency,
-    check_price,
-    check_race,
-    check_ratelimit,
-    check_session_swap,
-    check_test_live_keys,
-    check_webhook,
+    check_price, check_discount_stacking, check_coupon_rules,
+    check_coupon_enum, check_coupon_tamper, check_booking_ref,
+    check_idempotency, check_webhook, check_test_live_keys,
+    check_session_swap, check_cart_storage, check_business_rate,
+    check_race, check_ratelimit, check_csrf,
 )
 from webprobe.checks.phase6_infra import (
-    check_cache_poison,
-    check_cookie_flags,
-    check_cve,
-    check_debug_endpoints,
-    check_debug_flags,
-    check_directory_listing,
-    check_files,
-    check_headers,
-    check_mixed_content,
-    check_permissions_policy,
-    check_smuggling,
-    check_third_party_scripts,
-    check_tls_config,
+    check_headers, check_files, check_cve, check_cache_poison,
+    check_smuggling, check_tls_config, check_permissions_policy,
+    check_mixed_content, check_debug_endpoints, check_directory_listing,
+    check_cookie_flags, check_third_party_scripts, check_debug_flags,
 )
 
-
-# Global checks that run early (before crawling)
-GLOBAL_EARLY: Dict[str, Tuple[int, Callable[..., Any]]] = {
-    # Phase 6
-    "headers": (6, check_headers),
-    "cors": (6, check_cors),
-    "files": (6, check_files),
-    "cve": (6, check_cve),
-    "cache": (6, check_cache_poison),
-    "smuggle": (6, check_smuggling),
-    "tls": (6, check_tls_config),
-    "permissions": (6, check_permissions_policy),
-    "debug_endpoints": (6, check_debug_endpoints),
-    "directory_listing": (6, check_directory_listing),
-    "debug_flags": (6, check_debug_flags),
-    "third_party": (6, check_third_party_scripts),
-    "mixed_content": (6, check_mixed_content),
-
-    # Phase 1
+GLOBAL_EARLY = {
     "robots": (1, check_robots),
     "security_txt": (1, check_security_txt),
     "infra": (1, check_infra),
     "methods": (1, check_methods),
     "wayback": (1, check_wayback),
-
-    # Phase 2
     "session": (2, check_session),
-    "jwt": (2, check_jwt),
-    "jwt_exp": (2, check_jwt_expiry),
-    "jwt_pii": (2, check_jwt_pii),
-    "remember_me": (2, check_remember_me),
+    "csp": (3, check_csp_effective),
+    "cors": (4, check_cors),
+    "headers": (6, check_headers),
+    "files": (6, check_files),
+    "cve": (6, check_cve),
+    "cache": (6, check_cache_poison),
+    "smuggle": (6, check_smuggling),
+    "tls": (6, check_tls_config),
+    "permissions_policy": (6, check_permissions_policy),
+    "debug_endpoints": (6, check_debug_endpoints),
+    "directory_listing": (6, check_directory_listing),
+    "debug_flags": (6, check_debug_flags),
 }
 
-# Global checks that run after crawling (require crawled pages/discovered URLs)
-GLOBAL_LATE: Dict[str, Tuple[int, Callable[..., Any]]] = {
-    # Phase 1
+GLOBAL_LATE = {
     "js": (1, check_js),
     "discover": (1, check_discovery),
     "graphql": (1, check_graphql),
     "params": (1, check_params),
-    "paykeys": (1, check_payment_keys),
-
-    # Phase 2
+    "payment_keys": (1, check_payment_keys),
     "password_policy": (2, check_password_policy),
     "enum": (2, check_enumeration),
     "bruteforce": (2, check_bruteforce),
@@ -177,9 +84,12 @@ GLOBAL_LATE: Dict[str, Tuple[int, Callable[..., Any]]] = {
     "session_fix": (2, check_session_fixation),
     "logout": (2, check_logout_invalidation),
     "session_conc": (2, check_concurrent_sessions),
+    "remember_me": (2, check_remember_me),
     "token_url": (2, check_token_in_url),
     "cache_ctrl": (2, check_cache_controls),
-    "authz": (2, check_authz_customer),
+    "jwt": (2, check_jwt),
+    "jwt_exp": (2, check_jwt_expiry),
+    "jwt_pii": (2, check_jwt_pii),
     "login_csrf": (2, check_login_csrf),
     "logout_csrf": (2, check_logout_csrf),
     "auth_change_csrf": (2, check_auth_change_csrf),
@@ -189,23 +99,21 @@ GLOBAL_LATE: Dict[str, Tuple[int, Callable[..., Any]]] = {
     "supabase": (2, check_supabase),
     "password_change": (2, check_password_change),
     "email_change": (2, check_email_change),
-
-    # Phase 3
-    "sqli_second_order": (3, check_sqli_second_order),
+    "sqli_2nd": (3, check_sqli_second_order),
     "nosql_authbypass": (3, check_nosql_authbypass),
     "xss_stored": (3, check_xss_stored),
     "xss_dom": (3, check_xss_dom),
-    "csp": (3, check_csp_effective),
     "upload": (3, check_upload),
-    "host_header": (3, check_host_header_injection),
+    "host_inject": (3, check_host_header_injection),
     "graphql_depth": (3, check_graphql_depth),
-
-    # Phase 4
-    "forced": (4, check_forced_browsing),
     "idor_resources": (4, check_idor_resources),
-    "coupon_authz": (4, check_coupon_authz),
+    "idor_multi": (4, check_idor_multi),
+    "authz": (4, check_authz_customer),
+    "vertical_esc": (4, check_vertical_escalation),
+    "staff_to_admin": (4, check_staff_to_admin),
     "ui_only": (4, check_ui_only_bypass),
     "role_tamper": (4, check_role_tampering),
+    "forced": (4, check_forced_browsing),
     "workflow": (4, check_workflow_bypass),
     "state_trans": (4, check_state_transitions),
     "refund_authz": (4, check_refund_authz),
@@ -215,28 +123,28 @@ GLOBAL_LATE: Dict[str, Tuple[int, Callable[..., Any]]] = {
     "graphql_authz": (4, check_graphql_authz),
     "error_leak": (4, check_error_leak),
     "verbose_api": (4, check_verbose_api),
-    "staff_to_admin": (4, check_staff_to_admin),
+    "coupon_authz": (4, check_coupon_authz),
     "supabase_storage": (4, check_supabase_storage),
-
-    # Phase 5
+    "mass_assign_implicit": (4, check_mass_assignment_implicit),
     "coupon_rules": (5, check_coupon_rules),
     "coupon_enum": (5, check_coupon_enum),
     "coupon_tamper": (5, check_coupon_tamper),
     "booking_ref": (5, check_booking_ref),
-    "duplicate_submit": (5, check_duplicate_submit),
-    "callback": (5, check_callback_security),
     "idempotency": (5, check_idempotency),
     "webhook": (5, check_webhook),
     "test_live_keys": (5, check_test_live_keys),
     "session_swap": (5, check_session_swap),
     "cart_storage": (5, check_cart_storage),
     "business_rate": (5, check_business_rate),
+    "race": (5, check_race),
+    "ratelimit": (5, check_ratelimit),
     "csrf": (5, check_csrf),
+    "mixed_content": (6, check_mixed_content),
+    "third_party_scripts": (6, check_third_party_scripts),
+    "cookie_flags": (6, check_cookie_flags),
 }
 
-# Parameter point checks that execute per injection point
-POINT_CHECKS: Dict[str, Tuple[int, Callable[..., Any]]] = {
-    # Phase 3
+POINT_CHECKS = {
     "sqli": (3, check_sqli),
     "sqli_union": (3, check_sqli_union),
     "sqli_stacked": (3, check_sqli_stacked),
@@ -250,67 +158,72 @@ POINT_CHECKS: Dict[str, Tuple[int, Callable[..., Any]]] = {
     "proto": (3, check_proto),
     "crlf": (3, check_crlf),
     "mass_assign": (3, check_mass_assignment),
-    "json_types": (3, check_json_types),
-
-    # Phase 4
+    "json_type": (3, check_json_types),
     "idor": (4, check_idor),
     "payment_tamper": (4, check_payment_tampering),
-
-    # Phase 5
     "price": (5, check_price),
     "discount_stack": (5, check_discount_stacking),
-    "race": (5, check_race),
-    "ratelimit": (5, check_ratelimit),
 }
 
-# Complete sorted check registry
-ALL_CHECKS: List[str] = sorted(set(GLOBAL_EARLY) | set(GLOBAL_LATE) | set(POINT_CHECKS))
+ALL_CHECKS = sorted(set(GLOBAL_EARLY) | set(GLOBAL_LATE) | set(POINT_CHECKS))
 
-# Profile configurations
-PROFILES: Dict[str, List[str]] = {
-    "quick": [
-        "headers", "files", "cors", "sqli", "xss", "ssti", "idor",
-    ],
-    "recon": [
-        "headers", "robots", "security_txt", "infra", "methods",
-        "js", "discover", "graphql", "params", "wayback", "paykeys", "cve",
-    ],
-    "auth": [
-        "session", "jwt", "jwt_exp", "jwt_pii", "password_policy", "enum",
-        "bruteforce", "default_creds", "reset_token", "reset_host",
-        "session_fix", "logout", "login_csrf", "logout_csrf", "mfa_presence",
-        "supabase",
-    ],
-    "injection": [
-        "sqli", "sqli_union", "sqli_stacked", "sqli_second_order",
-        "nosql", "nosql_types", "nosql_authbypass",
-        "xss", "xss_stored", "xss_dom", "csp", "upload", "crlf",
-        "cmdi", "lfi", "ssrf", "ssti", "proto",
-    ],
-    "authz": [
-        "forced", "idor", "idor_resources", "authz", "ui_only",
-        "role_tamper", "missing_auth", "method_tamper", "staff_to_admin",
-        "supabase_storage",
-    ],
-    "business": [
-        "price", "discount_stack", "coupon_rules", "coupon_authz",
-        "booking_ref", "webhook", "test_live_keys", "payment_tamper",
-        "csrf", "race", "ratelimit",
-    ],
-    "config": [
-        "headers", "cors", "files", "cve", "cache", "smuggle",
-        "tls", "permissions", "debug_endpoints", "directory_listing",
-        "debug_flags", "third_party", "mixed_content",
-    ],
-    "owasp": [
-        "headers", "cors", "session", "jwt", "sqli", "xss", "ssti", "cmdi", "lfi",
-        "ssrf", "proto", "idor", "forced", "csrf", "files", "cache", "cve",
-        "coupon_rules", "booking_ref", "test_live_keys", "webhook",
-    ],
-    "api": [
-        "cors", "jwt", "graphql", "sqli", "nosql", "idor", "forced", "proto",
-        "price", "ratelimit", "js", "params", "booking_ref", "test_live_keys",
-        "webhook",
-    ],
+PROFILES = {
+    "quick": ["headers", "files", "cors", "sqli", "xss", "ssti", "idor",
+              "security_txt", "methods", "session"],
+    "recon": ["robots", "security_txt", "infra", "methods", "js", "discover",
+              "graphql", "params", "wayback", "cve", "csp", "payment_keys"],
+    "auth": ["session", "jwt", "jwt_exp", "jwt_pii", "csrf", "password_policy",
+             "enum", "bruteforce", "default_creds", "reset_token", "reset_host",
+             "session_fix", "logout", "session_conc", "remember_me", "token_url",
+             "cache_ctrl", "login_csrf", "logout_csrf", "auth_change_csrf",
+             "mfa_presence", "mfa_bypass", "password_change", "email_change"],
+    "injection": ["sqli", "sqli_union", "sqli_stacked", "sqli_2nd", "nosql",
+                  "nosql_types", "nosql_authbypass", "xss", "xss_stored",
+                  "xss_dom", "csp", "ssti", "cmdi", "lfi", "ssrf", "proto",
+                  "upload", "crlf", "host_inject", "mass_assign", "json_type",
+                  "graphql_depth"],
+    "authz": ["idor", "idor_resources", "idor_multi", "authz", "vertical_esc",
+              "staff_to_admin", "ui_only", "role_tamper", "forced", "workflow",
+              "state_trans", "refund_authz", "tenant", "missing_auth",
+              "method_tamper", "graphql_authz", "error_leak", "verbose_api",
+              "coupon_authz", "supabase_storage", "mass_assign_implicit",
+              "cors", "payment_tamper"],
+    "business": ["price", "discount_stack", "coupon_rules", "coupon_enum",
+                 "coupon_tamper", "booking_ref", "idempotency", "webhook",
+                 "test_live_keys", "session_swap", "cart_storage",
+                 "business_rate", "race", "ratelimit"],
+    "config": ["headers", "files", "cve", "cache", "smuggle", "tls",
+               "permissions_policy", "mixed_content", "debug_endpoints",
+               "directory_listing", "cookie_flags", "third_party_scripts",
+               "debug_flags"],
+    "owasp": ["headers", "cors", "session", "jwt", "sqli", "xss", "ssti",
+              "cmdi", "lfi", "ssrf", "proto", "idor", "idor_resources",
+              "forced", "csrf", "files", "cache", "cve", "enum",
+              "session_fix", "logout", "cache_ctrl", "authz", "login_csrf",
+              "logout_csrf", "auth_change_csrf", "mfa_presence",
+              "missing_auth", "method_tamper", "error_leak", "verbose_api",
+              "role_tamper", "ui_only", "host_inject", "crlf"],
+    "api": ["cors", "jwt", "graphql", "sqli", "nosql", "idor",
+            "idor_resources", "missing_auth", "method_tamper", "graphql_authz",
+            "graphql_depth", "role_tamper", "verbose_api", "mass_assign",
+            "json_type", "supabase", "supabase_storage"],
     "full": ALL_CHECKS,
 }
+
+PHASE_2_CHECKS = {
+    "session", "jwt", "jwt_exp", "jwt_pii", "csrf", "password_policy", "enum",
+    "bruteforce", "default_creds", "reset_token", "reset_host", "session_fix",
+    "logout", "session_conc", "remember_me", "token_url", "cache_ctrl",
+    "login_csrf", "logout_csrf", "auth_change_csrf", "mfa_presence",
+    "mfa_bypass", "otp_bruteforce", "supabase", "password_change",
+    "email_change", "ratelimit",
+}
+
+# --- Exploit chains (gated behind --exploit) ---
+from webprobe.exploits import EXPLOIT_CHECKS, EXPLOIT_PROFILE
+
+GLOBAL_EARLY.update({k: v for k, v in EXPLOIT_CHECKS.items() if v[0] in (6,)})
+GLOBAL_LATE.update({k: v for k, v in EXPLOIT_CHECKS.items() if v[0] not in (6,)})
+ALL_CHECKS = sorted(set(GLOBAL_EARLY) | set(GLOBAL_LATE) | set(POINT_CHECKS))
+PROFILES["exploit"] = EXPLOIT_PROFILE
+PROFILES["full"] = ALL_CHECKS

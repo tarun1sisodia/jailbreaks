@@ -34,20 +34,15 @@ INTERNAL_PREFIX = (
 )
 
 SECRET_RES = [
-    ("AWS access key", re.compile(r"AKIA[0-9A-Z]{16}")),
-    ("Google API key", re.compile(r"AIza[0-9A-Za-z_\-]{35}")),
-    ("Stripe live key", re.compile(r"(?:sk|pk)_live_[0-9A-Za-z]{20,}")),
-    ("Razorpay key", re.compile(r"rzp_(?:live|test)_[0-9A-Za-z]{10,}")),
-    ("Slack token", re.compile(r"xox[baprs]-[0-9A-Za-z\-]{10,}")),
-    ("GitHub token", re.compile(r"gh[pousr]_[0-9A-Za-z]{30,}")),
-    ("JWT", re.compile(r"eyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}")),
-    ("Private key", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----")),
-    (
-        "Generic secret",
-        re.compile(
-            r"""(?i)(?:api[_-]?key|secret|token|passwd|password)\s*[:=]\s*["']([^"']{10,})["']"""
-        ),
-    ),
+    ("AWS access key", re.compile(r"AKIA[0-9A-Z]{16}"), "critical"),
+    ("Google API key", re.compile(r"AIza[0-9A-Za-z_\-]{35}"), "info"),
+    ("Stripe live key", re.compile(r"(?:sk|pk)_live_[0-9A-Za-z]{20,}"), "critical"),
+    ("Razorpay key", re.compile(r"rzp_(?:live|test)_[0-9A-Za-z]{10,}"), "info"),
+    ("Slack token", re.compile(r"xox[baprs]-[0-9A-Za-z\-]{10,}"), "critical"),
+    ("GitHub token", re.compile(r"gh[pousr]_[0-9A-Za-z]{30,}"), "critical"),
+    ("JWT", re.compile(r"eyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}"), "info"),
+    ("Private key", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"), "critical"),
+    ("Generic secret", re.compile(r"""(?i)(?:api[_-]?key|secret|token|passwd|password)\s*[:=]\s*["']([^"']{10,})["']"""), "medium"),
 ]
 
 N8N_PATHS = [
@@ -325,7 +320,7 @@ def _harvest_source_map(
             sp = urllib.parse.urlsplit(u)
             if sp.netloc and sp.netloc != host:
                 found_urls.add(u)
-        for label, rx in SECRET_RES:
+        for label, rx, *_ in SECRET_RES:
             for m in rx.finditer(content):
                 val = m.group(1) if m.groups() else m.group(0)
                 if label == "Generic secret" and shannon(val) < 2.5:
@@ -362,12 +357,29 @@ def check_js(ctx: Ctx) -> List[Finding]:
             sp = urllib.parse.urlsplit(u)
             if sp.netloc and sp.netloc != host:
                 found_urls.add(u)
-        for label, rx in SECRET_RES:
+        for label, rx, _sev in SECRET_RES:
             for m in rx.finditer(text):
                 val = m.group(1) if m.groups() else m.group(0)
                 if label == "Generic secret" and shannon(val) < 2.5:
                     continue
-                found_secrets.append((label, val, src))
+                # Refine JWT severity by role claim
+                if label == "JWT":
+                    try:
+                        parts = val.split(".")
+                        payload_b64 = parts[1] + "=" * (-len(parts[1]) % 4)
+                        payload_data = json.loads(base64.urlsafe_b64decode(payload_b64))
+                        role = payload_data.get("role", "")
+                        if role == "anon":
+                            continue  # Supabase anon key is public by design
+                        if role == "service_role":
+                            found_secrets.append(
+                                ("JWT (SERVICE_ROLE — CRITICAL LEAK)", val, src))
+                        else:
+                            found_secrets.append(("JWT", val, src))
+                    except Exception:
+                        pass
+                else:
+                    found_secrets.append((label, val, src))
         sm = re.search(r"[#@]\s*sourceMappingURL=(\S+)", text)
         if sm:
             smurl = sm.group(1)
@@ -446,15 +458,26 @@ def check_js(ctx: Ctx) -> List[Finding]:
             )
         )
 
+    SEV_MAP = {
+        "AWS access key": "critical",
+        "Stripe live key": "critical",
+        "Slack token": "critical",
+        "GitHub token": "critical",
+        "Private key": "critical",
+        "JWT (SERVICE_ROLE — CRITICAL LEAK)": "critical",
+        "JWT": "medium",
+        "Generic secret": "medium",
+        "Google API key": "info",
+        "Razorpay key": "info",
+    }
     for label, val, src in found_secrets[:20]:
-        out.append(
-            Finding(
-                "recon", "high", f"Secret in client bundle: {label}", src,
-                evidence=f"{val[:6]}...{val[-4:]} ({len(val)} chars)",
-                remediation="Remove from client code, rotate the credential, load it server-side from a secret store.",
-                phase=1,
-            )
-        )
+        sev = SEV_MAP.get(label, "medium")
+        out.append(Finding(
+            "recon", sev, f"Secret in client bundle: {label}", src,
+            evidence=f"{val[:6]}...{val[-4:]} ({len(val)} chars)",
+            remediation="Remove from client code, rotate the credential, load it server-side from a secret store.",
+            phase=1,
+        ))
     return out
 
 
@@ -648,7 +671,7 @@ def check_payment_keys(ctx: Ctx) -> List[Finding]:
     for source_url, content in texts_to_check:
         if not content:
             continue
-        for label, rx in SECRET_RES:
+        for label, rx, *_ in SECRET_RES:
             if "Stripe" in label or "Razorpay" in label:
                 for m in rx.finditer(content):
                     val = m.group(0)

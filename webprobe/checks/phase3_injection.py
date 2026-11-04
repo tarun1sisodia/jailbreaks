@@ -3,6 +3,7 @@ Phase 3: Extended Injection and Input Validation checks.
 """
 
 import json
+import random
 import re
 import time
 import urllib.parse
@@ -69,7 +70,8 @@ def _find_upload_forms(ctx: Ctx) -> List[Tuple[str, Dict[str, Any]]]:
     for page in ctx.pages:
         for f in page.get("forms", []):
             has_file = any(
-                k.lower() in ("file", "upload", "image", "photo", "avatar", "document", "attachment", "picture")
+                k.lower() in ("file", "upload", "image", "photo", "avatar",
+                              "document", "attachment", "picture")
                 for k in f.get("inputs", {})
             )
             if "multipart" in f.get("enctype", "").lower() or has_file:
@@ -108,7 +110,6 @@ def _view_urls(ctx: Ctx, source_url: str, f: Dict[str, Any]) -> List[str]:
 
 
 def check_sqli_union(ctx: Ctx, point: Point) -> List[Finding]:
-    """A2 - UNION-based SQLi with bounded column counting."""
     base = point.send(ctx.http, point.orig_value)
     if base is None:
         return []
@@ -136,20 +137,17 @@ def check_sqli_union(ctx: Ctx, point: Point) -> List[Finding]:
             p = f"' UNION SELECT {','.join(parts)}{comment}"
             r = point.send(ctx.http, p)
             if r is not None and marker in r.text:
-                return [
-                    Finding(
-                        "sqli", "high", "SQL injection (UNION-based)",
-                        point.action, point.method, point.target, p,
-                        evidence=f"marker reflected at column {i+1} of {cols}",
-                        remediation="Parameterize queries; limit DB role privileges.",
-                        phase=3,
-                    )
-                ]
+                return [Finding(
+                    "sqli", "high", "SQL injection (UNION-based)",
+                    point.action, point.method, point.target, p,
+                    evidence=f"marker reflected at column {i+1} of {cols}",
+                    remediation="Parameterize queries; limit DB role privileges.",
+                    phase=3,
+                )]
     return []
 
 
 def check_sqli_stacked(ctx: Ctx, point: Point) -> List[Finding]:
-    """A5 - stacked statements (requires --time-based)."""
     if not getattr(ctx.args, "time_based", False):
         return []
     base = point.send(ctx.http, point.orig_value)
@@ -165,20 +163,17 @@ def check_sqli_stacked(ctx: Ctx, point: Point) -> List[Finding]:
         if r is None:
             continue
         if time.monotonic() - t0 >= 4.5:
-            return [
-                Finding(
-                    "sqli", "critical", "SQL injection (stacked queries)",
-                    point.action, point.method, point.target, p,
-                    evidence=f"delay {time.monotonic() - t0:.1f}s",
-                    remediation="Disable multi-statement execution in the DB driver and parameterize all queries.",
-                    phase=3,
-                )
-            ]
+            return [Finding(
+                "sqli", "critical", "SQL injection (stacked queries)",
+                point.action, point.method, point.target, p,
+                evidence=f"delay {time.monotonic() - t0:.1f}s",
+                remediation="Disable multi-statement execution in the DB driver and parameterize all queries.",
+                phase=3,
+            )]
     return []
 
 
 def check_sqli_second_order(ctx: Ctx) -> List[Finding]:
-    """A6 - second-order SQL injection probe via form storage."""
     if not getattr(ctx.args, "second_order", False):
         return []
     out: List[Finding] = []
@@ -191,20 +186,17 @@ def check_sqli_second_order(ctx: Ctx) -> List[Finding]:
         for view in _view_urls(ctx, source_url, f):
             r = ctx.http.fetch(view, follow=True)
             if r and any(p.search(r.text) for p in SQL_ERROR_PATTERNS):
-                out.append(
-                    Finding(
-                        "sqli", "high", "Second-order SQL injection",
-                        view, evidence=f"Database syntax error observed on read-back at {view}",
-                        remediation="Parameterize read-back queries that retrieve persisted input.",
-                        phase=3,
-                    )
-                )
+                out.append(Finding(
+                    "sqli", "high", "Second-order SQL injection",
+                    view, evidence=f"Database syntax error observed on read-back at {view}",
+                    remediation="Parameterize read-back queries that retrieve persisted input.",
+                    phase=3,
+                ))
                 return out
     return out
 
 
 def check_nosql_types(ctx: Ctx, point: Point) -> List[Finding]:
-    """B2 - array/object/null/bool where scalar expected."""
     base = point.send(ctx.http, point.orig_value)
     if base is None:
         return []
@@ -228,23 +220,19 @@ def check_nosql_types(ctx: Ctx, point: Point) -> List[Finding]:
         if r is None:
             continue
         if r.status >= 500 and re.search(
-            r"(?i)(typeerror|type error|cannot read|expected|cast|validation|invalid type|array|object)",
-            r.text,
-        ):
-            return [
-                Finding(
-                    "nosql", "medium", f"Type confusion accepted ({label})",
-                    point.action, point.method, point.target, frag,
-                    evidence=f"HTTP {r.status}: {clip(r.text, 160)}",
-                    remediation="Enforce strict type validation and reject arrays/objects where scalars are expected.",
-                    phase=3,
-                )
-            ]
+                r"(?i)(typeerror|type error|cannot read|expected|cast|validation|invalid type|array|object)",
+                r.text):
+            return [Finding(
+                "nosql", "medium", f"Type confusion accepted ({label})",
+                point.action, point.method, point.target, frag,
+                evidence=f"HTTP {r.status}: {clip(r.text, 160)}",
+                remediation="Enforce strict type validation and reject arrays/objects where scalars are expected.",
+                phase=3,
+            )]
     return []
 
 
 def check_nosql_authbypass(ctx: Ctx) -> List[Finding]:
-    """B3 - MongoDB operator bypass in login form."""
     page_url, f = find_login_form(ctx)
     if not f or not getattr(ctx.args, "test_email", ""):
         return []
@@ -259,22 +247,19 @@ def check_nosql_authbypass(ctx: Ctx) -> List[Finding]:
         body = urllib.parse.urlencode(params)
         r = ctx.http.fetch(f["action"], "POST", body, follow=True)
         if r and r.status < 400 and not re.search(r"(?i)(invalid|incorrect|wrong|failed|denied)", r.text[:3000]):
-            out.append(
-                Finding(
-                    "nosql", "critical", f"NoSQL authentication bypass via {op}",
-                    f["action"], method="POST",
-                    payload=f"{LOGIN_USER_RE.pattern} = {{{op}: ...}}",
-                    evidence=f"HTTP {r.status} without rejection markers",
-                    remediation="Cast login fields to string before querying; reject keys beginning with '$'.",
-                    phase=3,
-                )
-            )
+            out.append(Finding(
+                "nosql", "critical", f"NoSQL authentication bypass via {op}",
+                f["action"], method="POST",
+                payload=f"{LOGIN_USER_RE.pattern} = {{{op}: ...}}",
+                evidence=f"HTTP {r.status} without rejection markers",
+                remediation="Cast login fields to string before querying; reject keys beginning with '$'.",
+                phase=3,
+            ))
             return out
     return out
 
 
 def check_xss_stored(ctx: Ctx) -> List[Finding]:
-    """C2/C5 - stored XSS: plant marker payload, check read-back view."""
     if not getattr(ctx.args, "stored_xss", False):
         return []
     out: List[Finding] = []
@@ -288,20 +273,17 @@ def check_xss_stored(ctx: Ctx) -> List[Finding]:
         for view in _view_urls(ctx, source_url, f):
             r = ctx.http.fetch(view, follow=True)
             if r and payload in r.text:
-                out.append(
-                    Finding(
-                        "xss", "high", "Stored cross-site scripting", view,
-                        evidence=f"payload from {source_url} rendered unencoded on read-back",
-                        remediation="Apply context-aware HTML entity encoding on all persisted inputs.",
-                        phase=3,
-                    )
-                )
+                out.append(Finding(
+                    "xss", "high", "Stored cross-site scripting", view,
+                    evidence=f"payload from {source_url} rendered unencoded on read-back",
+                    remediation="Apply context-aware HTML entity encoding on all persisted inputs.",
+                    phase=3,
+                ))
                 return out
     return out
 
 
 def check_xss_dom(ctx: Ctx) -> List[Finding]:
-    """C3 - static source-to-sink analysis on client scripts."""
     out: List[Finding] = []
     js_urls = [s for p in ctx.pages for s in p.get("scripts", []) if s.startswith("http")]
     max_js = getattr(ctx.args, "max_js", 20)
@@ -312,33 +294,28 @@ def check_xss_dom(ctx: Ctx) -> List[Finding]:
         sinks = list(DOM_SINK_RE.finditer(r.text))
         sources = list(DOM_SOURCE_RE.finditer(r.text))
         if sinks and sources:
-            out.append(
-                Finding(
-                    "xss", "low", "DOM XSS: source and sink present in client bundle",
-                    src,
-                    evidence=f"{len(sources)} source reference(s) and {len(sinks)} sink(s)",
-                    remediation="Sanitize inputs with DOMPurify; avoid eval() and innerHTML with location.* values.",
-                    phase=3,
-                )
-            )
+            out.append(Finding(
+                "xss", "low", "DOM XSS: source and sink present in client bundle",
+                src,
+                evidence=f"{len(sources)} source reference(s) and {len(sinks)} sink(s)",
+                remediation="Sanitize inputs with DOMPurify; avoid eval() and innerHTML with location.* values.",
+                phase=3,
+            ))
     return out
 
 
 def check_csp_effective(ctx: Ctx) -> List[Finding]:
-    """C6 - whether CSP restricts inline script."""
     r = ctx.http.fetch(ctx.base_url, follow=True)
     if r is None:
         return []
     csp = r.header("Content-Security-Policy")
     if not csp:
-        return [
-            Finding(
-                "csp", "high", "No Content-Security-Policy header", r.url,
-                evidence="CSP header absent; inline script execution unrestricted.",
-                remediation="Deploy strict Content-Security-Policy with nonces or hashes.",
-                phase=3,
-            )
-        ]
+        return [Finding(
+            "csp", "high", "No Content-Security-Policy header", r.url,
+            evidence="CSP header absent; inline script execution unrestricted.",
+            remediation="Deploy strict Content-Security-Policy with nonces or hashes.",
+            phase=3,
+        )]
     csp_l = csp.lower()
     weak = []
     if "'unsafe-inline'" in csp_l and "nonce-" not in csp_l:
@@ -348,19 +325,16 @@ def check_csp_effective(ctx: Ctx) -> List[Finding]:
     if "script-src" not in csp_l and "default-src" not in csp_l:
         weak.append("no script-src or default-src")
     if weak:
-        return [
-            Finding(
-                "csp", "medium", "CSP does not restrict inline script", r.url,
-                evidence=f"Issues: {', '.join(weak)}; CSP: {clip(csp, 150)}",
-                remediation="Remove 'unsafe-inline' and 'unsafe-eval'; enforce nonces.",
-                phase=3,
-            )
-        ]
+        return [Finding(
+            "csp", "medium", "CSP does not restrict inline script", r.url,
+            evidence=f"Issues: {', '.join(weak)}; CSP: {clip(csp, 150)}",
+            remediation="Remove 'unsafe-inline' and 'unsafe-eval'; enforce nonces.",
+            phase=3,
+        )]
     return []
 
 
 def check_upload(ctx: Ctx) -> List[Finding]:
-    """E1-E5 - file upload probes against discovered forms."""
     forms = _find_upload_forms(ctx)
     if not forms:
         return []
@@ -368,7 +342,8 @@ def check_upload(ctx: Ctx) -> List[Finding]:
     for source_url, f in forms[:3]:
         file_field = None
         for k in f.get("inputs", {}):
-            if k.lower() in ("file", "upload", "image", "photo", "avatar", "document", "attachment", "picture"):
+            if k.lower() in ("file", "upload", "image", "photo", "avatar",
+                             "document", "attachment", "picture"):
                 file_field = k
                 break
         if not file_field:
@@ -376,60 +351,53 @@ def check_upload(ctx: Ctx) -> List[Finding]:
         extra = {k: v for k, v in f.get("inputs", {}).items() if k != file_field}
         for fname, content, mime in TEST_FILES[:3]:
             body, ctype = build_multipart(extra, {file_field: (fname, content, mime)})
-            r = ctx.http.fetch(f["action"], "POST", body, headers={"Content-Type": ctype}, follow=True)
-            if r and r.status < 400 and not re.search(r"(?i)(invalid|not allowed|forbidden|rejected)", r.text[:2000]):
-                out.append(
-                    Finding(
-                        "upload", "medium", f"Dangerous file upload accepted: {fname}",
-                        f["action"], method="POST", payload=fname,
-                        evidence=f"Upload of {fname} ({mime}) accepted with HTTP {r.status}",
-                        remediation="Validate magic bytes server-side; store uploads outside web root with randomized names.",
-                        phase=3,
-                    )
-                )
+            r = ctx.http.fetch(f["action"], "POST", body,
+                              headers={"Content-Type": ctype}, follow=True)
+            if r and r.status < 400 and not re.search(
+                    r"(?i)(invalid|not allowed|forbidden|rejected)", r.text[:2000]):
+                out.append(Finding(
+                    "upload", "medium", f"Dangerous file upload accepted: {fname}",
+                    f["action"], method="POST", payload=fname,
+                    evidence=f"Upload of {fname} ({mime}) accepted with HTTP {r.status}",
+                    remediation="Validate magic bytes server-side; store uploads outside web root with randomized names.",
+                    phase=3,
+                ))
                 break
     return out
 
 
 def check_crlf(ctx: Ctx, point: Point) -> List[Finding]:
-    """F1 - CRLF header injection."""
     marker = "wpcrlf" + rand_token("", 6)
     p = f"%0d%0aX-Injected-Header%3a+{marker}"
     r = point.send(ctx.http, p)
     if r and marker in r.header("X-Injected-Header"):
-        return [
-            Finding(
-                "crlf", "high", "CRLF injection: attacker header injected",
-                point.action, point.method, point.target, p,
-                evidence=f"Injected header reflected in HTTP response",
-                remediation="Strip CR and LF characters before writing values into HTTP response headers.",
-                phase=3,
-            )
-        ]
+        return [Finding(
+            "crlf", "high", "CRLF injection: attacker header injected",
+            point.action, point.method, point.target, p,
+            evidence="Injected header reflected in HTTP response",
+            remediation="Strip CR and LF characters before writing values into HTTP response headers.",
+            phase=3,
+        )]
     return []
 
 
 def check_host_header_injection(ctx: Ctx) -> List[Finding]:
-    """F2 - host-header injection."""
     out: List[Finding] = []
     canary = f"wphost{rand_token('', 6)}.example"
     for h in ("Host", "X-Forwarded-Host"):
         r = ctx.http.fetch(ctx.base_url, headers={h: canary}, follow=False)
         if r and (canary in r.text or canary in r.url):
-            out.append(
-                Finding(
-                    "host", "medium", f"Host header reflected ({h})",
-                    r.url, payload=f"{h}: {canary}",
-                    evidence=f"Canary {canary} reflected in response body or redirect URL",
-                    remediation="Configure web server to trust only canonical hostname.",
-                    phase=3,
-                )
-            )
+            out.append(Finding(
+                "host", "medium", f"Host header reflected ({h})",
+                r.url, payload=f"{h}: {canary}",
+                evidence=f"Canary {canary} reflected in response body or redirect URL",
+                remediation="Configure web server to trust only canonical hostname.",
+                phase=3,
+            ))
     return out
 
 
 def check_mass_assignment(ctx: Ctx, point: Point) -> List[Finding]:
-    """H2 - mass assignment in POST requests."""
     if point.method != "POST":
         return []
     base = point.send(ctx.http, point.orig_value)
@@ -438,20 +406,17 @@ def check_mass_assignment(ctx: Ctx, point: Point) -> List[Finding]:
     for field in MASS_ASSIGN_FIELDS[:6]:
         r = point.send(ctx.http, point.orig_value, extra_headers={f"X-{field}": "true"})
         if r and r.status < 400 and re.search(rf'"{field}"\s*:\s*(?:"?true"?|999)', r.text):
-            return [
-                Finding(
-                    "mass-assign", "high", f"Mass assignment accepted field '{field}'",
-                    point.action, point.method, point.target, payload=field,
-                    evidence=f"Server reflected updated privileged field {field}",
-                    remediation="Use a strict allowlist (DTO) for body updates.",
-                    phase=3,
-                )
-            ]
+            return [Finding(
+                "mass-assign", "high", f"Mass assignment accepted field '{field}'",
+                point.action, point.method, point.target, payload=field,
+                evidence=f"Server reflected updated privileged field {field}",
+                remediation="Use a strict allowlist (DTO) for body updates.",
+                phase=3,
+            )]
     return []
 
 
 def check_json_types(ctx: Ctx, point: Point) -> List[Finding]:
-    """H1 - JSON type tampering."""
     if point.method != "POST":
         return []
     for label, val in (("null", None), ("array", [1]), ("object", {"a": 1})):
@@ -459,24 +424,23 @@ def check_json_types(ctx: Ctx, point: Point) -> List[Finding]:
             test_data = dict(point.params)
             test_data[point.target] = val
             body = json.dumps(test_data)
-            r = ctx.http.fetch(point.action, "POST", body, headers={"Content-Type": "application/json"}, follow=True)
-            if r and r.status >= 500 and re.search(r"(?i)(typeerror|type error|cannot read|cast|validation)", r.text):
-                return [
-                    Finding(
-                        "json-type", "medium", f"Unvalidated JSON type: {label}",
-                        point.action, point.method, point.target, payload=label,
-                        evidence=f"HTTP {r.status} on {label} injection: {clip(r.text, 140)}",
-                        remediation="Validate payload types strictly against JSON schema.",
-                        phase=3,
-                    )
-                ]
+            r = ctx.http.fetch(point.action, "POST", body,
+                              headers={"Content-Type": "application/json"}, follow=True)
+            if r and r.status >= 500 and re.search(
+                    r"(?i)(typeerror|type error|cannot read|cast|validation)", r.text):
+                return [Finding(
+                    "json-type", "medium", f"Unvalidated JSON type: {label}",
+                    point.action, point.method, point.target, payload=label,
+                    evidence=f"HTTP {r.status} on {label} injection: {clip(r.text, 140)}",
+                    remediation="Validate payload types strictly against JSON schema.",
+                    phase=3,
+                )]
         except Exception:
             continue
     return []
 
 
 def check_graphql_depth(ctx: Ctx) -> List[Finding]:
-    """H3 - query depth limits."""
     out: List[Finding] = []
     candidates = [e for e in ctx.endpoints if "graphql" in e.lower()] + ["/graphql", "/api/graphql"]
     for p in dict.fromkeys(candidates):
@@ -484,24 +448,25 @@ def check_graphql_depth(ctx: Ctx) -> List[Finding]:
         nested = "__typename"
         for _ in range(12):
             nested = f"{{__typename {nested}}}"
-        r = ctx.http.fetch(url, "POST", json.dumps({"query": f"{{ {nested} }}"}), headers={"Content-Type": "application/json"})
+        r = ctx.http.fetch(url, "POST", json.dumps({"query": f"{{ {nested} }}"}),
+                          headers={"Content-Type": "application/json"})
         if r and r.status == 200 and "errors" not in r.text[:2000] and "__typename" in r.text:
-            out.append(
-                Finding(
-                    "graphql", "medium", "GraphQL accepts 12-deep nested queries (No query depth limit)",
-                    url, method="POST",
-                    evidence="Server returned 200 for 12-deep query without depth error",
-                    remediation="Enforce maximum query depth and complexity limits in GraphQL server.",
-                    phase=3,
-                )
-            )
+            out.append(Finding(
+                "graphql", "medium", "GraphQL accepts 12-deep nested queries (No query depth limit)",
+                url, method="POST",
+                evidence="Server returned 200 for 12-deep query without depth error",
+                remediation="Enforce maximum query depth and complexity limits in GraphQL server.",
+                phase=3,
+            ))
             break
     return out
 
 
-# Baseline Point Checks
+# ==========================================================================
+# Baseline point checks — with SSTI false-positive fix
+# ==========================================================================
+
 def check_sqli(ctx: Ctx, point: Point) -> List[Finding]:
-    """Error-based and boolean-based SQL injection against point."""
     base = point.send(ctx.http, point.orig_value)
     if not base:
         return []
@@ -512,134 +477,139 @@ def check_sqli(ctx: Ctx, point: Point) -> List[Finding]:
             continue
         for err_re in SQL_ERROR_PATTERNS:
             if err_re.search(r.text) and not err_re.search(base.text):
-                return [
-                    Finding(
-                        "sqli", "high", "SQL injection (Error-based)",
-                        point.action, point.method, point.target, p,
-                        evidence=f"SQL error pattern matched: {err_re.pattern}",
-                        remediation="Parameterize all database queries.",
-                        phase=3,
-                    )
-                ]
+                return [Finding(
+                    "sqli", "high", "SQL injection (Error-based)",
+                    point.action, point.method, point.target, p,
+                    evidence=f"SQL error pattern matched: {err_re.pattern}",
+                    remediation="Parameterize all database queries.",
+                    phase=3,
+                )]
     return []
 
 
 def check_nosql(ctx: Ctx, point: Point) -> List[Finding]:
-    """NoSQL injection operators."""
     r = point.send(ctx.http, "[$ne]=1")
     if r and r.status < 400 and ("Mongo" in r.text or "BSON" in r.text):
-        return [
-            Finding(
-                "nosql", "high", "NoSQL injection detected",
-                point.action, point.method, point.target, "[$ne]=1",
-                evidence="NoSQL response alteration observed",
-                remediation="Sanitize inputs and cast query parameters to primitive types.",
-                phase=3,
-            )
-        ]
+        return [Finding(
+            "nosql", "high", "NoSQL injection detected",
+            point.action, point.method, point.target, "[$ne]=1",
+            evidence="NoSQL response alteration observed",
+            remediation="Sanitize inputs and cast query parameters to primitive types.",
+            phase=3,
+        )]
     return []
 
 
 def check_xss(ctx: Ctx, point: Point) -> List[Finding]:
-    """Reflected cross-site scripting."""
     canary = rand_token("wpxss", 6)
     payload = f"\"><script>/*{canary}*/</script>"
     r = point.send(ctx.http, payload)
     if r and payload in r.text:
-        return [
-            Finding(
-                "xss", "high", "Reflected cross-site scripting (XSS)",
-                point.action, point.method, point.target, payload,
-                evidence=f"Injected payload reflected unencoded in response",
-                remediation="Apply context-aware HTML entity encoding on all user inputs.",
-                phase=3,
-            )
-        ]
+        return [Finding(
+            "xss", "high", "Reflected cross-site scripting (XSS)",
+            point.action, point.method, point.target, payload,
+            evidence="Injected payload reflected unencoded in response",
+            remediation="Apply context-aware HTML entity encoding on all user inputs.",
+            phase=3,
+        )]
     return []
 
 
 def check_ssti(ctx: Ctx, point: Point) -> List[Finding]:
-    """Server-side template injection."""
-    marker = "49"
-    for payload in ("{{7*7}}", "${7*7}", "<%= 7*7 %>"):
+    """SSTI check with a unique arithmetic marker that won't collide with page content.
+
+    Previous version used {{7*7}}=49 which flagged every page containing the
+    string '49' (prices, pincodes, phone digits). This version uses a large
+    prime multiplication whose result never appears by accident.
+    """
+    a, b = 7391, 8231
+    expected = str(a * b)  # "60845221"
+
+    base = point.send(ctx.http, point.orig_value)
+    base_text = base.text if base else ""
+
+    # Payload variants across the major template engines
+    variants = [
+        (f"{{{{{a}*{b}}}}}", "Jinja2/Twig/Django ({...})"),
+        (f"${{{a}*{b}}}", "JSP/Spring EL (${...})"),
+        (f"#{{{a}*{b}}}", "Ruby ERB/Thymeleaf (#{...})"),
+        (f"<%= {a}*{b} %>", "Ruby ERB/EJS (<%=...%>)"),
+    ]
+
+    for payload, engine_hint in variants:
         r = point.send(ctx.http, payload)
-        if r and marker in r.text and marker not in point.orig_value:
-            return [
-                Finding(
-                    "ssti", "critical", "Server-side template injection (SSTI)",
+        if r is None:
+            continue
+        # Require the RESULT of the arithmetic to appear, not just any number
+        if expected in r.text and expected not in base_text:
+            # Confirm with a second, different arithmetic (defeat WAF pre-canned responses)
+            c, d = 6173, 5749
+            second_expected = str(c * d)  # "35480077"
+            confirm_payload = payload.replace(f"{a}*{b}", f"{c}*{d}")
+            r2 = point.send(ctx.http, confirm_payload)
+            if r2 is not None and second_expected in r2.text:
+                return [Finding(
+                    "ssti", "critical", f"Server-side template injection (SSTI) — {engine_hint}",
                     point.action, point.method, point.target, payload,
-                    evidence=f"Template expression {payload} evaluated to {marker}",
+                    evidence=f"Arithmetic evaluated on server: {a}*{b}={expected}, "
+                             f"confirmed with {c}*{d}={second_expected}",
                     remediation="Never pass user input directly into template engines; use logic-less templates.",
                     phase=3,
-                )
-            ]
+                )]
     return []
 
 
 def check_cmdi(ctx: Ctx, point: Point) -> List[Finding]:
-    """OS command injection."""
     for p in ("; id", "| id", "& whoami"):
         r = point.send(ctx.http, f"{point.orig_value}{p}")
         if r and re.search(r"(?i)(uid=[0-9]+|gid=[0-9]+|nt authority\\system)", r.text):
-            return [
-                Finding(
-                    "cmdi", "critical", "OS command injection",
-                    point.action, point.method, point.target, p,
-                    evidence=f"Command output pattern matched in response",
-                    remediation="Avoid shell execution; use safe subprocess APIs with array arguments.",
-                    phase=3,
-                )
-            ]
+            return [Finding(
+                "cmdi", "critical", "OS command injection",
+                point.action, point.method, point.target, p,
+                evidence="Command output pattern matched in response",
+                remediation="Avoid shell execution; use safe subprocess APIs with array arguments.",
+                phase=3,
+            )]
     return []
 
 
 def check_lfi(ctx: Ctx, point: Point) -> List[Finding]:
-    """Path traversal and local file inclusion."""
     for p in ("../../../../etc/passwd", "..\\..\\..\\..\\windows\\win.ini"):
         r = point.send(ctx.http, p)
         if r and ("root:x:0:0" in r.text or "[extensions]" in r.text.lower()):
-            return [
-                Finding(
-                    "lfi", "critical", "Local file inclusion / Path traversal",
-                    point.action, point.method, point.target, p,
-                    evidence="System file contents exposed in response",
-                    remediation="Sanitize file paths; resolve against a safe base directory and disallow traversal.",
-                    phase=3,
-                )
-            ]
+            return [Finding(
+                "lfi", "critical", "Local file inclusion / Path traversal",
+                point.action, point.method, point.target, p,
+                evidence="System file contents exposed in response",
+                remediation="Sanitize file paths; resolve against a safe base directory and disallow traversal.",
+                phase=3,
+            )]
     return []
 
 
 def check_ssrf(ctx: Ctx, point: Point) -> List[Finding]:
-    """Server-side request forgery."""
     for p in ("http://169.254.169.254/latest/meta-data/", "http://127.0.0.1:80"):
         r = point.send(ctx.http, p)
         if r and ("ami-id" in r.text or "instance-id" in r.text):
-            return [
-                Finding(
-                    "ssrf", "critical", "Server-side request forgery (SSRF) - Cloud metadata exposed",
-                    point.action, point.method, point.target, p,
-                    evidence="Cloud metadata response returned",
-                    remediation="Validate URL destinations against strict host allowlist; block private IP ranges.",
-                    phase=3,
-                )
-            ]
+            return [Finding(
+                "ssrf", "critical", "Server-side request forgery (SSRF) - Cloud metadata exposed",
+                point.action, point.method, point.target, p,
+                evidence="Cloud metadata response returned",
+                remediation="Validate URL destinations against strict host allowlist; block private IP ranges.",
+                phase=3,
+            )]
     return []
 
 
 def check_proto(ctx: Ctx, point: Point) -> List[Finding]:
-    """JavaScript prototype pollution."""
     p = "__proto__[polluted]=true"
     r = point.send(ctx.http, p)
     if r and "polluted" in r.text:
-        return [
-            Finding(
-                "proto", "medium", "Potential Prototype Pollution accepted",
-                point.action, point.method, point.target, p,
-                evidence="Prototype key reflected or accepted without validation",
-                remediation="Freeze Object.prototype or sanitize object keys (block __proto__, constructor).",
-                phase=3,
-            )
-        ]
+        return [Finding(
+            "proto", "medium", "Potential Prototype Pollution accepted",
+            point.action, point.method, point.target, p,
+            evidence="Prototype key reflected or accepted without validation",
+            remediation="Freeze Object.prototype or sanitize object keys (block __proto__, constructor).",
+            phase=3,
+        )]
     return []
-
