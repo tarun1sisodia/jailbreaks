@@ -1,6 +1,7 @@
 """
 WebProbe Cloud API Service
 FastAPI wrapper to execute webprobe vulnerability and logic scans on-demand.
+Includes CORS support for Cloudflare Pages and optional Cloudflare R2 report persistence.
 """
 
 import asyncio
@@ -13,6 +14,7 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import urlsplit
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -25,11 +27,68 @@ app = FastAPI(
     version=VERSION,
 )
 
+# Enable CORS for Cloudflare Pages, local dev, and custom frontend domains
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 REPORTS_DIR = os.path.abspath(os.environ.get("WEBPROBE_REPORTS_DIR", "reports"))
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
+# Cloudflare R2 configuration (optional free-tier report persistence)
+R2_ACCOUNT_ID = os.environ.get("R2_ACCOUNT_ID")
+R2_ACCESS_KEY_ID = os.environ.get("R2_ACCESS_KEY_ID")
+R2_SECRET_ACCESS_KEY = os.environ.get("R2_SECRET_ACCESS_KEY")
+R2_BUCKET_NAME = os.environ.get("R2_BUCKET_NAME")
+
 # In-memory scan registry: scan_id -> dict
 SCANS: Dict[str, Dict[str, Any]] = {}
+
+
+def _get_r2_client():
+    """Returns a boto3 S3 client configured for Cloudflare R2, or None."""
+    if not (R2_ACCOUNT_ID and R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY and R2_BUCKET_NAME):
+        return None
+    try:
+        import boto3
+        return boto3.client(
+            "s3",
+            endpoint_url=f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com",
+            aws_access_key_id=R2_ACCESS_KEY_ID,
+            aws_secret_access_key=R2_SECRET_ACCESS_KEY,
+            region_name="auto",
+        )
+    except Exception:
+        return None
+
+
+def _upload_to_r2(local_path: str, r2_key: str) -> bool:
+    """Uploads a local report file to Cloudflare R2 bucket."""
+    s3 = _get_r2_client()
+    if not s3:
+        return False
+    try:
+        s3.upload_file(local_path, R2_BUCKET_NAME, r2_key)
+        return True
+    except Exception as exc:
+        print(f"[!] Cloudflare R2 upload error for {r2_key}: {exc}")
+        return False
+
+
+def _download_from_r2(r2_key: str, local_path: str) -> bool:
+    """Downloads a report file from Cloudflare R2 bucket if missing locally."""
+    s3 = _get_r2_client()
+    if not s3:
+        return False
+    try:
+        s3.download_file(R2_BUCKET_NAME, r2_key, local_path)
+        return True
+    except Exception:
+        return False
 
 
 class ScanRequest(BaseModel):
@@ -136,6 +195,12 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
                 }
             except Exception:
                 entry["findings_count"] = 0
+
+            # Backup reports to Cloudflare R2 if configured
+            _upload_to_r2(json_path, f"reports/{scan_id}.json")
+            _upload_to_r2(md_path, f"reports/{scan_id}.md")
+            _upload_to_r2(sarif_path, f"reports/{scan_id}.sarif")
+            _upload_to_r2(log_path, f"reports/{scan_id}.log")
         else:
             entry["status"] = "failed"
             entry["exit_code"] = proc.returncode
@@ -165,6 +230,7 @@ def health_check() -> Dict[str, Any]:
         "version": VERSION,
         "total_checks": len(ALL_CHECKS),
         "profiles": list(PROFILES.keys()),
+        "r2_storage_enabled": bool(R2_ACCOUNT_ID and R2_BUCKET_NAME),
     }
 
 
@@ -225,18 +291,20 @@ def get_scan_status(scan_id: str) -> Dict[str, Any]:
 @app.get("/scan/{scan_id}/report", tags=["Reports"])
 def get_scan_report(scan_id: str, format: str = Query("json", enum=["json", "md", "sarif", "log"])):
     """Retrieve the full scan report in JSON, Markdown, SARIF, or console log format."""
-    if scan_id not in SCANS:
-        raise HTTPException(status_code=404, detail="Scan ID not found")
-
-    entry = SCANS[scan_id]
-    if entry["status"] in ("queued", "running"):
-        return JSONResponse(
-            status_code=202,
-            content={"status": entry["status"], "message": "Scan is still in progress"},
-        )
+    if scan_id in SCANS:
+        entry = SCANS[scan_id]
+        if entry["status"] in ("queued", "running"):
+            return JSONResponse(
+                status_code=202,
+                content={"status": entry["status"], "message": "Scan is still in progress"},
+            )
 
     ext_map = {"json": ".json", "md": ".md", "sarif": ".sarif", "log": ".log"}
     file_path = os.path.join(REPORTS_DIR, f"{scan_id}{ext_map[format]}")
+
+    # If missing locally (e.g. after Render container sleep), attempt pull from Cloudflare R2
+    if not os.path.exists(file_path):
+        _download_from_r2(f"reports/{scan_id}{ext_map[format]}", file_path)
 
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail=f"Report file for format '{format}' not found")
@@ -257,4 +325,3 @@ def list_scans(limit: int = 50) -> List[Dict[str, Any]]:
     items = list(SCANS.values())
     items.sort(key=lambda x: x.get("created_at", 0), reverse=True)
     return items[:limit]
-

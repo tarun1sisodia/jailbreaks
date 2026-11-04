@@ -80,6 +80,11 @@ python scripts/refresh_session.py
 ```bash
 python webprobe.py --config config/agraskbagheltourandtravels.json --profile full
 ```
+# Runs with interactive prompt (or defaults to agraskbagheltourandtravels.json)
+run_full_scan.bat
+
+# Or pass a URL directly:
+run_full_scan.bat https://example.com
 
 #### B. Full Audit with Deep Opt-In Probes
 Enable time-based SQLi, stored XSS reflection, second-order forms, hidden parameter brute-force, and Wayback historical seed discovery:
