@@ -115,6 +115,19 @@ class HttpClient:
             except Exception:
                 self.ssl_ctx = ssl._create_unverified_context()
 
+        self._aimd: Optional[Any] = None
+        self.tls_client: Optional[Any] = None
+        self.oast: Optional[Any] = None
+
+    def set_aimd(self, aimd: Any) -> None:
+        self._aimd = aimd
+
+    def set_tls_client(self, tls_client: Any) -> None:
+        self.tls_client = tls_client
+
+    def set_oast(self, bridge: Any) -> None:
+        self.oast = bridge
+
     def _parse_cookie_header(self, header_val: str) -> None:
         header_val = header_val.strip()
         if not header_val:
@@ -160,6 +173,9 @@ class HttpClient:
             instability=self.instability,
             activity=self.activity,
         )
+        c._aimd = getattr(self, "_aimd", None)
+        c.tls_client = getattr(self, "tls_client", None)
+        c.oast = getattr(self, "oast", None)
         return c
 
     def fetch(
@@ -174,10 +190,18 @@ class HttpClient:
         """Public fetch method wrapping throttle, abort, and instability monitoring."""
         if self._abort_check():
             raise SystemExit(3)
+        if getattr(self, "_aimd", None) is not None:
+            self._aimd.throttle()
         self._throttle()
+        t0 = time.monotonic()
         resp = self._fetch_inner(url, method, data, headers, follow, timeout)
-        if resp is not None and self.instability is not None:
-            self.instability.observe(resp.status)
+        elapsed = time.monotonic() - t0
+        if getattr(self, "_aimd", None) is not None:
+            self._aimd.observe(elapsed)
+        if resp is not None:
+            resp.elapsed = elapsed
+            if self.instability is not None:
+                self.instability.observe(resp.status)
         return resp
 
     def _fetch_inner(
@@ -224,6 +248,21 @@ class HttpClient:
                 req_headers["Authorization"] = f"Bearer {self.cookies['sb-access-token']}"
             elif "token" in self.cookies and self.cookies["token"].startswith("eyJ"):
                 req_headers["Authorization"] = f"Bearer {self.cookies['token']}"
+
+        if getattr(self, "tls_client", None) is not None:
+            res = self.tls_client.fetch(url, method=method, data=data, headers=req_headers)
+            if res is None:
+                return None
+            body, status, hdrs = res
+            raw_headers = list(hdrs.items()) if isinstance(hdrs, dict) else []
+            headers_dict = {k.lower(): str(v) for k, v in raw_headers}
+            return Response(
+                status=status,
+                url=url,
+                headers=headers_dict,
+                raw_headers=raw_headers,
+                body=body if isinstance(body, bytes) else (body.encode() if isinstance(body, str) else b""),
+            )
 
         encoded_data = None
         if data is not None:

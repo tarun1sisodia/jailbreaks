@@ -33,6 +33,18 @@ class InstabilityMonitor:
         self.min_samples = min_samples
         self.lock = threading.Lock()
         self.aborted = False
+        self._aimd: Optional[Any] = None
+
+    @property
+    def aimd(self) -> Any:
+        if self._aimd is None:
+            from webprobe.core.aimd import AIMD
+            self._aimd = AIMD()
+        return self._aimd
+
+    @aimd.setter
+    def aimd(self, val: Any) -> None:
+        self._aimd = val
 
     def observe(self, status: int) -> None:
         with self.lock:
@@ -73,3 +85,8 @@ def aborted(ctx: Any) -> bool:
         return True
     return False
 
+
+def scrub(text: str) -> str:
+    """Scrub PII, tokens, and secrets from text."""
+    from webprobe.core.redact import redact_text
+    return redact_text(text)

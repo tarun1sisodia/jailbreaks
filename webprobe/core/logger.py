@@ -65,11 +65,15 @@ def log(msg: str, dim: bool = False, err: bool = False) -> None:
 
 
 class ActivityLog:
-    """Thread-safe append-only activity log for audit compliance."""
+    """Thread-safe append-only activity log with optional HMAC ledger co-write."""
 
-    def __init__(self, path: str, version: str = "3.0.0"):
+    def __init__(self, path: str = "", version: str = "3.0.0", ledger: Optional[Any] = None):
         self.path = path
+        self.version = version
+        self.ledger = ledger
         self.lock = threading.Lock()
+        self.entries: List[Dict[str, str]] = []
+
         if path:
             parent = os.path.dirname(path)
             if parent and not os.path.exists(parent):
@@ -87,18 +91,37 @@ class ActivityLog:
         outcome: str,
         description: str,
         evidence: str = "",
+        url: str = "",
     ) -> None:
-        if not self.path:
-            return
-        clean_desc = description.replace("\t", " ").replace("\n", " ")
-        clean_ev = evidence.replace("\t", " ").replace("\n", " ")[:500]
-        line = (
-            f"{time.strftime('%Y-%m-%dT%H:%M:%S%z')}\t"
-            f"{test_id}\t{outcome}\t{clean_desc}\t{clean_ev}\n"
-        )
+        from webprobe.core.safety import scrub
+        clean_desc = scrub(description).replace("\t", " ").replace("\n", " ")
+        clean_ev = scrub(evidence).replace("\t", " ").replace("\n", " ")[:500]
+        ts = time.strftime('%Y-%m-%dT%H:%M:%S%z')
+        entry = {
+            "timestamp": ts,
+            "test_id": test_id,
+            "outcome": outcome,
+            "description": clean_desc,
+            "evidence": clean_ev,
+            "url": url,
+        }
         with self.lock:
-            with open(self.path, "a", encoding="utf-8") as fh:
-                fh.write(line)
+            self.entries.append(entry)
+            if self.path:
+                line = f"{ts}\t{test_id}\t{outcome}\t{clean_desc}\t{clean_ev}\n"
+                with open(self.path, "a", encoding="utf-8") as fh:
+                    fh.write(line)
+            if self.ledger is not None:
+                self.ledger.append(test_id, outcome, clean_desc, clean_ev, url=url)
+
+    def replay(self, limit: int = 10) -> List[Dict[str, str]]:
+        with self.lock:
+            return list(self.entries[-limit:])
+
+    def verify(self) -> bool:
+        if self.ledger is not None:
+            return self.ledger.verify()
+        return True
 
 
 def format_findings_text(findings: List[Any], duration: float) -> str:
@@ -148,4 +171,3 @@ def format_findings_json(findings: List[Any], metadata: Dict[str, Any]) -> str:
         "findings": [f.to_dict() if hasattr(f, "to_dict") else vars(f) for f in findings],
     }
     return json.dumps(data, indent=2)
-

@@ -68,6 +68,12 @@ def build_parser() -> argparse.ArgumentParser:
                           help="Disable SSL/TLS certificate verification")
     g_safety.add_argument("--verbose", action="store_true",
                           help="Enable verbose debugging output")
+    g_safety.add_argument("--tls-impersonate", default="",
+                          help="Browser TLS fingerprint profile (chrome124, safari17, edge124, firefox120)")
+    g_safety.add_argument("--oast", choices=["", "webhooksite", "interactsh"], default="",
+                          help="Out-of-band collaborator provider (webhooksite)")
+    g_safety.add_argument("--webhook-token", default="",
+                          help="Webhook.site token / uuid for OAST testing")
 
     # Recon & Crawl Controls
     g_crawl = p.add_argument_group("Crawling & Discovery")
@@ -167,6 +173,8 @@ def build_parser() -> argparse.ArgumentParser:
     g_logic.add_argument("--rce-command", default="id",
                          help="Command to execute during --exploit-rce proof "
                               "(default: id)")
+    g_logic.add_argument("--postex", default="",
+                         help="Finding ID or category to execute post-exploitation proof for")
     g_logic.add_argument("--chain", action="store_true", default=True,
                          help="Chain related findings into compound exploits (default: on)")
     g_logic.add_argument("--no-chain", dest="chain", action="store_false")
@@ -177,6 +185,8 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Save report to file")
     g_out.add_argument("--json", action="store_true",
                        help="Output report in JSON format")
+    g_out.add_argument("--md", default="",
+                       help="Save report to Markdown file")
     g_out.add_argument("--sarif", action="store_true",
                        help="Emit SARIF 2.1.0 format (in addition to --output)")
     g_out.add_argument("--sarif-path", default="webprobe.sarif",
@@ -252,13 +262,14 @@ def list_checks() -> None:
             scope = "Global (Late)"
         elif name in POINT_CHECKS:
             phase, _ = POINT_CHECKS[name]
-            scope = "Point"
+            scope = "Parameter Point"
         else:
             phase, scope = 0, "Unknown"
         print(f"{name:<24} P{phase:<7} {scope:<12}")
     print("\nProfiles available:")
-    for prof, chks in PROFILES.items():
-        print(f"  * {prof:<12} ({len(chks)} checks): {', '.join(chks[:6])}...")
+    for prof, checks in PROFILES.items():
+        print(f"  * {prof:<12} ({len(checks)} checks)")
+    print()
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -272,45 +283,35 @@ def main(argv: Optional[List[str]] = None) -> int:
         list_checks()
         return 0
 
+    # Load configuration file if specified
     if args.config:
         try:
-            with open(args.config, "r", encoding="utf-8") as fh:
-                cfg_data = json.load(fh)
-            # Flatten any nested dictionaries
-            flat: Dict[str, Any] = {}
-            for k, v in cfg_data.items():
-                if isinstance(v, dict):
-                    for sub_k, sub_v in v.items():
-                        flat[sub_k] = sub_v
-                else:
-                    flat[k] = v
-            for k, v in flat.items():
-                if hasattr(args, k):
-                    curr = getattr(args, k)
-                    if curr == parser.get_default(k):
-                        setattr(args, k, v)
+            with open(args.config, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+                for k, v in cfg.items():
+                    attr = k.replace("-", "_")
+                    if hasattr(args, attr):
+                        # Config file values do not overwrite explicit CLI arguments
+                        cli_val = getattr(args, attr)
+                        parser_default = parser.get_default(attr)
+                        if cli_val == parser_default:
+                            setattr(args, attr, v)
         except Exception as e:
-            print(C.red(f"[!] Error loading config file {args.config}: {e}"))
+            print(C.red(f"[!] Error loading config {args.config}: {e}"))
             return 1
 
     if not args.url:
         parser.print_help()
-        print(C.red("\nError: target URL is required (or provide via --config / --self-check)."))
         return 1
 
-    base_url = ensure_scheme(args.url.strip())
-    parsed_root = urllib.parse.urlsplit(base_url)
-    root_url = f"{parsed_root.scheme}://{parsed_root.netloc}"
+    base_url = ensure_scheme(args.url.rstrip("/"))
+    sp = urllib.parse.urlsplit(base_url)
+    root_url = f"{sp.scheme}://{sp.netloc}"
 
-    # Verify testing window
-    if args.testing_hours and not in_testing_window(args.testing_hours):
-        print(C.red(f"[!] Current time is outside authorized testing window ({args.testing_hours}). Halting."))
+    # Verify operational testing window
+    if not in_testing_window(args.testing_hours):
+        print(C.yellow(f"[!] Current time outside authorized testing hours window: {args.testing_hours}"))
         return 2
-
-    # Check emergency abort
-    if check_abort_file(args.abort_file):
-        print(C.red(f"[!] Emergency abort file '{args.abort_file}' detected. Aborting."))
-        return 3
 
     # Resolve checks to run
     if args.checks:
@@ -324,7 +325,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     print(C.dim(f"[*] Rate limit: {args.rate_limit} rps, Threads: {args.threads}"))
 
     # Operational monitors
-    activity = ActivityLog(args.activity_log, version=VERSION) if args.activity_log else None
+    ledger = None
+    if getattr(args, "ledger", ""):
+        from webprobe.core.ledger import Ledger
+        ledger = Ledger(args.ledger)
+
+    activity = None
+    if args.activity_log or ledger:
+        activity = ActivityLog(args.activity_log or "", version=VERSION, ledger=ledger)
+
     instability = InstabilityMonitor(threshold=args.instability_threshold, min_samples=args.instability_samples)
 
     http = HttpClient(
@@ -340,16 +349,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     if getattr(args, "aimd", False):
         from webprobe.core.aimd import AIMD
         aimd = AIMD(initial_rps=args.rate_limit or 5.0)
-        http._aimd = aimd
-        original_fetch = http.fetch
-        def _fetch_with_aimd(url, *a, **kw):
-            aimd.throttle()
-            t0 = time.monotonic()
-            r = original_fetch(url, *a, **kw)
-            aimd.observe(time.monotonic() - t0)
-            return r
-        http.fetch = _fetch_with_aimd
+        http.set_aimd(aimd)
         print(C.dim(f"[*] AIMD rate limiter active (initial {aimd.rps:.1f} rps)"))
+
+    if getattr(args, "tls_impersonate", ""):
+        from webprobe.core.tlsfp import TLSClient
+        http.set_tls_client(TLSClient(impersonate=args.tls_impersonate, insecure=args.insecure))
 
     ctx = Ctx(
         http=http,
@@ -359,6 +364,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         activity=activity,
         instability=instability,
     )
+
+    if getattr(args, "oast", "") == "webhooksite":
+        from webprobe.core.oast import OASTBridge
+        bridge = OASTBridge(token=getattr(args, "webhook_token", ""))
+        http.set_oast(bridge)
+        ctx.collab = bridge
 
     findings: List[Finding] = []
     t_start = time.monotonic()
@@ -396,6 +407,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 extra_seeds=ctx.extra_seeds,
                 max_depth=args.crawl_depth,
                 max_pages=args.max_pages,
+                ctx=ctx,
             )
             ctx.pages = pages
             ctx.discovered = discovered
@@ -465,24 +477,24 @@ def main(argv: Optional[List[str]] = None) -> int:
         for f in findings:
             redact_finding(f)
 
-    # Enrich with CVSS + taxonomy
-    from webprobe.core import cvss, taxonomy
-    for f in findings:
-        score, vector = cvss.score_for_category(f.category)
-        entry = taxonomy.lookup(f.category)
-        f.extra = getattr(f, "extra", {})
-        f.extra["cvss"] = {"score": score, "vector": vector}
-        f.extra["taxonomy"] = {
-            "cwe": entry["cwe"],
-            "owasp": entry["owasp"],
-            "pci": entry.get("pci", []),
-        }
+    # Exploit chains
+    if getattr(args, "chain", True):
+        from webprobe.exploits.chainer import check_exploit_chains
+        findings.extend(check_exploit_chains(ctx, findings))
 
-    # Chain synthesis
-    from webprobe.exploits.chainer import check_exploit_chains
-    findings.extend(check_exploit_chains(ctx, findings))
+    # Post-exploitation proof execution if requested
+    if getattr(args, "postex", ""):
+        from webprobe.exploits.postex import generate_non_destructive_proof
+        for f in list(findings):
+            if f.category == args.postex or args.postex in f.title.lower():
+                def _invoke(cmd: str) -> Optional[str]:
+                    r = http.fetch(f.url, "POST", data={"cmd": cmd})
+                    return r.text if r else None
+                proof = generate_non_destructive_proof(ctx, f, invoke=_invoke)
+                if proof:
+                    findings.append(proof)
 
-    # SARIF
+    # SARIF output
     if getattr(args, "sarif", False):
         from webprobe.core.sarif import build_sarif
         sarif_json = build_sarif(findings, target=base_url)
@@ -492,12 +504,13 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     # HMAC ledger
     if getattr(args, "ledger", ""):
-        from webprobe.core.ledger import Ledger
-        ledger = Ledger(args.ledger)
+        if ledger is None:
+            from webprobe.core.ledger import Ledger
+            ledger = Ledger(args.ledger)
         for f in findings:
             ledger.append(f.category, f.severity, f.title,
                           f.evidence[:400], url=f.url)
-        print(C.green(f"[+] Ledger: {args.ledger}"))
+        print(C.green(f"[+] Ledger written to {args.ledger}"))
 
     # Output formatting
     if args.json:
@@ -520,9 +533,27 @@ def main(argv: Optional[List[str]] = None) -> int:
             fh.write(report)
         print(C.green(f"[+] Report written to {args.output}"))
 
+    if getattr(args, "md", ""):
+        md_lines = [
+            f"# webprobe Security Report - {base_url}\n",
+            f"- **Profile:** {args.profile}\n",
+            f"- **Duration:** {duration:.2f}s\n",
+            f"- **Total Findings:** {len(findings)}\n\n",
+        ]
+        for f in findings:
+            md_lines.append(
+                f"## [{f.severity.upper()}] {f.title}\n"
+                f"- **Category:** {f.category}\n"
+                f"- **URL:** {f.url}\n"
+                f"- **Evidence:** {f.evidence}\n"
+                f"- **Remediation:** {f.remediation}\n\n"
+            )
+        with open(args.md, "w", encoding="utf-8") as fh:
+            fh.write("".join(md_lines))
+        print(C.green(f"[+] Markdown report written to {args.md}"))
+
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
-
