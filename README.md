@@ -2,7 +2,65 @@
 
 An enterprise-grade, zero-dependency, automated web application security scanner (`webprobe`) and assessment framework built for authorized security testing across modern application stacks (React/Next.js, Fastify/Node, Supabase PostgreSQL, Razorpay payments, Cloudflare/Render infrastructure).
 
-Zero third-party packages required — uses standard library Python 3.8+.
+The scanner CLI uses the Python standard library; the web API and UI have the dependencies described below.
+
+---
+
+## WebProbe workspace
+
+The WebProbe UI is a focused interface for launching authorized assessments, monitoring scanner output, and reviewing findings. The bundled API serves the built frontend and exposes the same API under `/api`; the original unprefixed API endpoints remain available.
+
+### Run with Docker
+
+```bash
+docker compose up --build
+```
+
+Open `http://localhost:8080`. The image builds the frontend in a Node stage and serves it from FastAPI. Reports are saved under `./reports` by the Compose volume.
+
+### Local development
+
+In one terminal, install the API dependencies and start the backend:
+
+```bash
+python -m venv .venv
+# Activate .venv using the command for your shell, then:
+pip install -r requirements.txt
+uvicorn server:app --host 0.0.0.0 --port 8080
+```
+
+With Node.js 20 or newer installed, in a second terminal:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Open the Vite URL shown in the terminal. Browser requests use the relative `/api` path; Vite proxies those requests to the backend. Set `WEBPROBE_API_PROXY` when starting Vite if the backend is at a different address. To serve the production build directly from FastAPI instead, run `npm run build` in `frontend/` **before** starting the backend and open port 8080.
+
+The first visit shows clearly labeled example scans when the connected backend has no scan history (or is unreachable); launching a real assessment replaces them. The backend's scan registry is currently in memory, so the history and running process state reset when the API restarts, even if report files persist. A bookmarked report URL can still open a persisted report, although its status and start time may be unavailable. False-positive annotations and settings are stored only in the current browser; they do not alter the server's reports. Phase-by-phase progress and live finding counts are not supplied by the current engine, so the console does not guess them. Aborting stops the scanner subprocess; a partial report may not be saved.
+
+**Run scans only against systems you own or have explicit permission to test.** The API itself has no authentication; protect it with appropriate network access controls before exposing it beyond a trusted environment.
+
+### Frontend structure and motion
+
+The React routes are lazy-loaded, and page-specific styles are imported by their
+page modules so Vite ships their JavaScript and CSS only when the route is
+visited. Shared theme, layout, controls, and navigation styles are in
+`frontend/src/styles/`; table and component styles are shared by the pages that
+use them. `npm run build` verifies the production chunk graph. Motion is defined
+centrally in `frontend/src/styles/animations.css`; see
+[`frontend/ANIMATIONS.md`](frontend/ANIMATIONS.md) for the content-by-content
+animation map and reduced-motion behavior.
+
+### Tests
+
+```bash
+pip install pytest httpx
+pytest
+cd frontend && npm test && npm run build
+```
 
 ---
 
@@ -24,7 +82,7 @@ Verify internal check registries (no network requests made):
 
 ```bash
 python webprobe.py --self-check
-# Expected output: [+] Self-check PASSED: 106 total checks registered
+# Expected output: [+] Self-check PASSED: 136 total checks registered
 ```
 
 ---

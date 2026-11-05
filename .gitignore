@@ -22,3 +22,9 @@ rollout*
 baseline_*
 *.ledger
 *.sarif
+
+# Frontend dependencies and generated build
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+.venv/

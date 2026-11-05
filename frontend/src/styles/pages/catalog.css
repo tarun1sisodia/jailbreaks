@@ -1,0 +1,18 @@
+/* Engine catalog. */
+
+.catalog-summary { display: flex; gap: 64px; align-items: flex-end; padding-bottom: 32px; border-bottom: 1px solid var(--border); }
+.catalog-summary > div { display: flex; flex-direction: column; gap: 9px; }
+.catalog-summary strong { color: var(--text); font-size: 24px; line-height: 32px; font-weight: 600; }
+.catalog-summary p { margin: 0 0 4px auto; max-width: 235px; color: var(--quiet-text); font-size: 11px; line-height: 18px; }
+.catalog-filters { margin: 24px 0 16px; }
+.catalog-table th:nth-child(1) { width: 35%; }
+.catalog-table th:nth-child(2) { width: 25%; }
+.catalog-table th:nth-child(3) { width: 40%; }
+.catalog-table tr:hover td { background: var(--hover); }
+.data-table .catalog-id, .data-table .catalog-profiles { color: var(--muted); font-size: 12px; }
+
+@media (max-width: 767px) {
+    .catalog-table { min-width: 620px; }
+    .catalog-summary { gap: 36px; }
+    .catalog-summary p { display: none; }
+}

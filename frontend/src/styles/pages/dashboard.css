@@ -1,0 +1,65 @@
+/* Dashboard-specific layout. */
+
+.dashboard-page { padding-top: 47px; }
+.hero-eyebrow { display: flex; align-items: center; gap: 9px; }
+.eyebrow-line { display: block; width: 18px; height: 1px; background: var(--faint); }
+.dashboard-hero h1 { margin: 16px 0 0; color: var(--text); font-size: 40px; line-height: 48px; font-weight: 600; letter-spacing: -.02em; }
+.hero-copy { margin: 12px 0 0; color: var(--body); font-size: 14px; line-height: 22px; }
+.hero-form { max-width: 720px; margin-top: 24px; }
+.scan-input-shell { display: flex; align-items: center; height: 52px; padding: 5px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--input); }
+.scan-input-shell:focus-within { border-color: #48484e; }
+.scan-input-shell.has-error { border-color: var(--critical); }
+.input-leading-icon { margin: 0 12px 0 9px; color: var(--faint); }
+.scan-input-shell input { flex: 1; min-width: 0; height: 100%; padding: 0; outline: 0; border: 0; background: transparent; color: var(--text); font-family: 'Geist Mono Variable', monospace; font-size: 13px; letter-spacing: -.01em; }
+.assess-button { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-width: 100px; height: 40px; padding: 0 14px; border: 0; border-radius: 5px; background: var(--accent); color: var(--accent-text); font-size: 13px; font-weight: 500; }
+.assess-button:hover { background: #fff; }
+:root[data-theme='light'] .assess-button:hover { background: #000; }
+.hero-options { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 14px; }
+.profile-selector, .profile-option { display: inline-flex; align-items: center; }
+.profile-selector { flex-wrap: wrap; gap: 0; }
+.profile-prefix { margin-right: 16px; color: var(--quiet-text); font-size: 10px; font-weight: 500; letter-spacing: .06em; }
+.profile-option button { padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 13px; line-height: 20px; }
+.profile-option button:hover, .profile-option button.profile-active { color: var(--text); }
+.option-separator { padding: 0 9px; color: var(--faint); }
+.advanced-link { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.advanced-link:hover { color: var(--text); }
+.authorization-note { margin: 16px 0 0; color: var(--quiet-text); font-size: 11px; line-height: 16px; }
+.dashboard-metrics { position: relative; }
+
+.scan-input-shell input::placeholder { color: var(--faint); opacity: 1; }
+
+.example-caption { display: inline-flex; align-items: center; gap: 7px; color: var(--quiet-text); font-size: 10px; font-weight: 500; letter-spacing: .06em; white-space: nowrap; }
+
+.metric-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 760px; gap: 40px; margin-top: 25px; }
+.metric { display: flex; flex-direction: column; align-items: flex-start; }
+.metric-value { margin-top: 9px; color: var(--text); font-family: 'Geist Mono Variable', monospace; font-size: 24px; line-height: 32px; letter-spacing: -.04em; font-weight: 600; }
+.metric-value.metric-alert { color: var(--critical); }
+.metric-description { margin-top: 3px; color: var(--faint); font-size: 11px; line-height: 16px; }
+
+@media (min-width: 768px) {
+    .dashboard-page { padding-top: 32px; }
+    .dashboard-metrics .metric-strip { margin-top: 12px; }
+    .recent-section .example-notice { margin-top: 10px; }
+    .recent-section .scan-table { margin-top: 4px; }
+}
+
+@media (max-width: 767px) {
+    .dashboard-page { padding-top: 40px; }
+    .dashboard-hero h1 { max-width: 480px; font-size: 32px; line-height: 40px; letter-spacing: -.025em; }
+    .desktop-break { display: none; }
+    .hero-copy { max-width: 480px; }
+    .hero-options { align-items: flex-start; flex-direction: column; gap: 13px; }
+    .metric-strip { gap: 15px; }
+    .metric-value { font-size: 22px; }
+    .metric-description { font-size: 10px; }
+}
+
+@media (max-width: 520px) {
+    .dashboard-page { padding-top: 32px; }
+    .dashboard-hero h1 { max-width: 350px; }
+    .scan-input-shell { height: 50px; }
+    .input-leading-icon { margin-left: 6px; margin-right: 8px; }
+    .assess-button { min-width: 82px; gap: 7px; padding: 0 10px; }
+    .metric-strip { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .metric-description { display: none; }
+}
