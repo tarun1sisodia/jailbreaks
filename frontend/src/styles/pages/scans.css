@@ -1,0 +1,4 @@
+/* History-specific spacing. */
+
+.history-notice { margin-top: 22px; }
+.scan-filters + .scan-table, .scan-filters + .table-scroll { margin-top: 18px; }

@@ -1,0 +1,36 @@
+/* Assessment configuration form. */
+
+.setup-layout { display: grid; grid-template-columns: minmax(0, 640px) 230px; justify-content: space-between; gap: 64px; }
+.form-section { padding-bottom: 30px; margin-bottom: 30px; border-bottom: 1px solid var(--border); }
+.form-section-title { display: flex; align-items: baseline; gap: 14px; margin-bottom: 22px; }
+.form-section-title > span { color: var(--quiet-text); font-family: 'Geist Mono Variable', monospace; font-size: 11px; }
+.form-section-title h2, .setup-aside h2 { margin: 0; color: var(--text); font-size: 16px; line-height: 24px; font-weight: 500; }
+.form-field { margin-top: 16px; }
+
+.control-row { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 11px 0; }
+
+.advanced-details { padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+.advanced-details summary { display: flex; justify-content: space-between; align-items: center; color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer; list-style: none; }
+
+.advanced-details summary::-webkit-details-marker { display: none; }
+
+.advanced-details[open] summary svg { transform: rotate(180deg); }
+.optional-label { margin-left: 8px; color: var(--quiet-text); font-size: 10px; letter-spacing: .05em; }
+.details-intro { margin-top: 14px; }
+.form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+.submit-error { margin-top: 20px; }
+.setup-aside { align-self: start; padding-top: 4px; }
+.setup-aside-icon { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; margin-bottom: 17px; border: 1px solid var(--border-strong); border-radius: 6px; color: var(--muted); }
+.setup-aside h2 { font-size: 14px; }
+.setup-aside p { color: var(--muted); font-size: 12px; line-height: 20px; }
+.setup-aside > span { display: block; margin-top: 22px; color: var(--quiet-text); font-size: 10px; letter-spacing: .06em; }
+
+@media (max-width: 1100px) {
+    .setup-layout { grid-template-columns: minmax(0, 1fr) 190px; gap: 40px; }
+}
+
+@media (max-width: 767px) {
+    .setup-layout { display: block; }
+    .setup-aside { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--border); }
+    .setup-aside p { max-width: 400px; }
+}

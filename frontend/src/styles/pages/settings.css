@@ -1,0 +1,32 @@
+/* Preference sections. */
+
+.settings-section { padding-bottom: 0; }
+.settings-section + .settings-section { margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--border); }
+.settings-section-heading { margin-bottom: 23px; }
+.settings-section-heading h2 { margin: 0; color: var(--text); font-size: 16px; line-height: 24px; font-weight: 500; }
+.settings-section-heading p { margin: 4px 0 0; color: var(--quiet-text); font-size: 12px; line-height: 18px; }
+.setting-row { display: grid; grid-template-columns: 1fr 240px; align-items: center; gap: 24px; min-height: 48px; padding: 7px 0; }
+.setting-row-top { align-items: start; }
+.setting-control { width: 100%; }
+.setting-control > .toggle { vertical-align: middle; }
+.setting-inline-actions { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.settings-connection { display: inline-flex; align-items: center; gap: 7px; margin-right: auto; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.setting-control-left { justify-self: start; }
+.setting-control.range-control { justify-content: space-between; }
+.setting-control.range-control input { width: 150px; }
+.theme-options { display: flex; align-items: center; gap: 22px; }
+.theme-options button { padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 13px; }
+.theme-options button.active, .theme-options button:hover { color: var(--text); }
+.data-row { align-items: start; }
+
+@media (max-width: 767px) {
+    .setting-row { grid-template-columns: 1fr 210px; gap: 16px; }
+    .setting-control.range-control input { width: 100px; }
+    .settings-connection { font-size: 10px; }
+}
+
+@media (max-width: 520px) {
+    .setting-row { grid-template-columns: 1fr; gap: 10px; padding: 12px 0; }
+    .setting-control { max-width: 300px; }
+    .setting-control-left { grid-row: 1; }
+}
