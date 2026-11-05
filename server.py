@@ -4,19 +4,22 @@ FastAPI wrapper to execute webprobe vulnerability and logic scans on-demand.
 Includes CORS support for Cloudflare Pages and optional Cloudflare R2 report persistence.
 """
 
-import asyncio
 import json
 import os
+import subprocess
 import sys
+import threading
 import time
 import uuid
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, Literal, Optional
 from urllib.parse import urlsplit
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
-from pydantic import BaseModel, Field, HttpUrl
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 from webprobe.checks import ALL_CHECKS, PROFILES
 from webprobe.cli import VERSION
@@ -26,6 +29,7 @@ app = FastAPI(
     description="Authorized Web Application Vulnerability & Logic Scanner API",
     version=VERSION,
 )
+api = APIRouter()
 
 # Enable CORS for Cloudflare Pages, local dev, and custom frontend domains
 app.add_middleware(
@@ -47,6 +51,9 @@ R2_BUCKET_NAME = os.environ.get("R2_BUCKET_NAME")
 
 # In-memory scan registry: scan_id -> dict
 SCANS: Dict[str, Dict[str, Any]] = {}
+_SCAN_LOCK = threading.RLock()
+_PROCESSES: Dict[str, subprocess.Popen] = {}
+FRONTEND_DIR = Path(__file__).resolve().parent / "frontend" / "dist"
 
 
 def _get_r2_client():
@@ -122,9 +129,13 @@ def _send_webhook_notification(callback_url: str, payload: Dict[str, Any]) -> No
 
 def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
     """Background task worker that executes the scanner subprocess."""
-    entry = SCANS[scan_id]
-    entry["status"] = "running"
-    entry["started_at"] = time.time()
+    with _SCAN_LOCK:
+        entry = SCANS[scan_id]
+        # An assessment can be cancelled before the background worker starts.
+        if entry["status"] == "aborted":
+            return
+        entry["status"] = "running"
+        entry["started_at"] = time.time()
 
     url = req_data["url"]
     profile = req_data.get("profile", "full")
@@ -143,6 +154,7 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
 
     cmd = [
         sys.executable,
+        "-u",  # Make the console log available while the subprocess is running.
         "webprobe.py",
         url,
         "--profile", profile,
@@ -156,8 +168,7 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
 
     if aimd:
         cmd.append("--aimd")
-    if redact:
-        cmd.append("--redact")
+    cmd.append("--redact" if redact else "--no-redact")
     if cookie:
         cmd.extend(["--cookie", cookie])
     if secondary_cookie:
@@ -166,49 +177,63 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
         cmd.extend(["--admin-cookie", admin_cookie])
 
     try:
-        import subprocess
         with open(log_path, "w", encoding="utf-8") as log_file:
-            proc = subprocess.run(
-                cmd,
-                stdout=log_file,
-                stderr=subprocess.STDOUT,
-                text=True,
-                cwd=os.path.dirname(os.path.abspath(__file__)),
-            )
+            with _SCAN_LOCK:
+                if entry["status"] == "aborted":
+                    return
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=log_file,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    cwd=os.path.dirname(os.path.abspath(__file__)),
+                )
+                _PROCESSES[scan_id] = proc
+            returncode = proc.wait()
 
-        entry["ended_at"] = time.time()
-        entry["duration_seconds"] = round(entry["ended_at"] - entry["started_at"], 2)
+        # Keep the process registered until its final status has been recorded.
+        # This prevents an abort racing with an already-finished subprocess.
+        success = returncode == 0 and os.path.exists(json_path)
+        findings = []
+        if success:
+            with open(json_path, "r", encoding="utf-8") as jf:
+                findings = json.load(jf).get("findings", [])
+            summary = {
+                severity: sum(1 for finding in findings if finding.get("severity", "").lower() == severity)
+                for severity in ("critical", "high", "medium", "low", "info")
+            }
 
-        if proc.returncode == 0 and os.path.exists(json_path):
-            entry["status"] = "completed"
-            try:
-                with open(json_path, "r", encoding="utf-8") as jf:
-                    report_data = json.load(jf)
-                findings = report_data.get("findings", [])
+        with _SCAN_LOCK:
+            _PROCESSES.pop(scan_id, None)
+            entry["ended_at"] = time.time()
+            entry["duration_seconds"] = round(entry["ended_at"] - entry["started_at"], 2)
+            if entry["status"] == "aborted":
+                completed = False
+            elif success:
+                entry["status"] = "completed"
                 entry["findings_count"] = len(findings)
-                entry["severity_summary"] = {
-                    "critical": sum(1 for f in findings if f.get("severity") == "critical"),
-                    "high": sum(1 for f in findings if f.get("severity") == "high"),
-                    "medium": sum(1 for f in findings if f.get("severity") == "medium"),
-                    "low": sum(1 for f in findings if f.get("severity") == "low"),
-                    "info": sum(1 for f in findings if f.get("severity") == "info"),
-                }
-            except Exception:
-                entry["findings_count"] = 0
+                entry["severity_summary"] = summary
+                completed = True
+            else:
+                entry["status"] = "failed"
+                entry["exit_code"] = returncode
+                completed = False
 
-            # Backup reports to Cloudflare R2 if configured
+        if completed:
+            # Backup reports to Cloudflare R2 if configured.
             _upload_to_r2(json_path, f"reports/{scan_id}.json")
             _upload_to_r2(md_path, f"reports/{scan_id}.md")
             _upload_to_r2(sarif_path, f"reports/{scan_id}.sarif")
             _upload_to_r2(log_path, f"reports/{scan_id}.log")
-        else:
-            entry["status"] = "failed"
-            entry["exit_code"] = proc.returncode
 
     except Exception as exc:
-        entry["status"] = "error"
-        entry["error"] = str(exc)
-        entry["ended_at"] = time.time()
+        with _SCAN_LOCK:
+            _PROCESSES.pop(scan_id, None)
+            if entry["status"] != "aborted":
+                entry["status"] = "error"
+                entry["error"] = str(exc)
+            entry["ended_at"] = time.time()
+            entry["duration_seconds"] = round(entry["ended_at"] - entry["started_at"], 2)
 
     if callback:
         _send_webhook_notification(callback, {
@@ -221,7 +246,7 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
         })
 
 
-@app.get("/health", tags=["System"])
+@api.get("/health", tags=["System"])
 def health_check() -> Dict[str, Any]:
     """Cloud health probe endpoint."""
     return {
@@ -234,7 +259,7 @@ def health_check() -> Dict[str, Any]:
     }
 
 
-@app.get("/profiles", tags=["Configuration"])
+@api.get("/profiles", tags=["Configuration"])
 def list_profiles() -> Dict[str, Any]:
     """Catalog of all scanning profiles and check sets."""
     return {
@@ -246,27 +271,35 @@ def list_profiles() -> Dict[str, Any]:
     }
 
 
-@app.post("/scan", status_code=status.HTTP_202_ACCEPTED, tags=["Scans"])
+@api.post("/scan", status_code=status.HTTP_202_ACCEPTED, tags=["Scans"])
 def start_scan(req: ScanRequest, bg_tasks: BackgroundTasks) -> Dict[str, Any]:
     """Trigger a web security assessment scan against a target URL."""
     # Basic URL validation
-    parsed = urlsplit(req.url)
-    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+    try:
+        parsed = urlsplit(req.url)
+        valid_url = parsed.scheme in ("http", "https") and bool(parsed.hostname) and not parsed.username and not parsed.password
+    except ValueError:
+        valid_url = False
+    if not valid_url:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid URL scheme. Must start with http:// or https://",
         )
 
+    if req.profile not in PROFILES:
+        raise HTTPException(status_code=400, detail="Unknown scan profile")
+
     scan_id = str(uuid.uuid4())
-    SCANS[scan_id] = {
-        "scan_id": scan_id,
-        "url": req.url,
-        "profile": req.profile,
-        "status": "queued",
-        "created_at": time.time(),
-        "findings_count": 0,
-        "severity_summary": {},
-    }
+    with _SCAN_LOCK:
+        SCANS[scan_id] = {
+            "scan_id": scan_id,
+            "url": req.url,
+            "profile": req.profile,
+            "status": "queued",
+            "created_at": time.time(),
+            "findings_count": 0,
+            "severity_summary": {},
+        }
 
     bg_tasks.add_task(_run_scanner_job, scan_id, req.model_dump())
 
@@ -280,20 +313,45 @@ def start_scan(req: ScanRequest, bg_tasks: BackgroundTasks) -> Dict[str, Any]:
     }
 
 
-@app.get("/scan/{scan_id}", tags=["Scans"])
+@api.get("/scan/{scan_id}", tags=["Scans"])
 def get_scan_status(scan_id: str) -> Dict[str, Any]:
     """Retrieve execution status, elapsed time, and summary findings count."""
-    if scan_id not in SCANS:
-        raise HTTPException(status_code=404, detail="Scan ID not found")
-    return SCANS[scan_id]
+    with _SCAN_LOCK:
+        if scan_id not in SCANS:
+            raise HTTPException(status_code=404, detail="Scan ID not found")
+        return dict(SCANS[scan_id])
 
 
-@app.get("/scan/{scan_id}/report", tags=["Reports"])
-def get_scan_report(scan_id: str, format: str = Query("json", enum=["json", "md", "sarif", "log"])):
+@api.post("/scan/{scan_id}/abort", tags=["Scans"])
+def abort_scan(scan_id: str) -> Dict[str, Any]:
+    """Stop a queued or running scanner subprocess, if it is still active."""
+    with _SCAN_LOCK:
+        entry = SCANS.get(scan_id)
+        if not entry:
+            raise HTTPException(status_code=404, detail="Scan ID not found")
+        if entry["status"] not in ("queued", "running"):
+            raise HTTPException(status_code=409, detail="Scan is no longer running")
+        proc = _PROCESSES.get(scan_id)
+        if proc and proc.poll() is not None:
+            raise HTTPException(status_code=409, detail="Scan is already finishing")
+        if proc:
+            try:
+                proc.terminate()
+            except ProcessLookupError:
+                raise HTTPException(status_code=409, detail="Scan is already finishing")
+        entry["status"] = "aborted"
+        entry["ended_at"] = time.time()
+        if entry.get("started_at"):
+            entry["duration_seconds"] = round(entry["ended_at"] - entry["started_at"], 2)
+        return {"scan_id": scan_id, "status": "aborted"}
+
+
+@api.get("/scan/{scan_id}/report", tags=["Reports"])
+def get_scan_report(scan_id: str, format: Literal["json", "md", "sarif", "log"] = Query("json")):
     """Retrieve the full scan report in JSON, Markdown, SARIF, or console log format."""
     if scan_id in SCANS:
         entry = SCANS[scan_id]
-        if entry["status"] in ("queued", "running"):
+        if entry["status"] in ("queued", "running") and format != "log":
             return JSONResponse(
                 status_code=202,
                 content={"status": entry["status"], "message": "Scan is still in progress"},
@@ -301,6 +359,10 @@ def get_scan_report(scan_id: str, format: str = Query("json", enum=["json", "md"
 
     ext_map = {"json": ".json", "md": ".md", "sarif": ".sarif", "log": ".log"}
     file_path = os.path.join(REPORTS_DIR, f"{scan_id}{ext_map[format]}")
+
+    # The worker may not have created its log yet; an empty log is not an error.
+    if format == "log" and scan_id in SCANS and SCANS[scan_id]["status"] in ("queued", "running") and not os.path.exists(file_path):
+        return PlainTextResponse("")
 
     # If missing locally (e.g. after Render container sleep), attempt pull from Cloudflare R2
     if not os.path.exists(file_path):
@@ -319,9 +381,33 @@ def get_scan_report(scan_id: str, format: str = Query("json", enum=["json", "md"
         return FileResponse(file_path, media_type="application/json", filename=f"webprobe_{scan_id}.sarif")
 
 
-@app.get("/scans", tags=["Scans"])
-def list_scans(limit: int = 50) -> List[Dict[str, Any]]:
+@api.get("/scans", tags=["Scans"])
+def list_scans(request: Request, limit: int = Query(50, ge=1, le=1000)) -> Any:
     """List recent scans."""
-    items = list(SCANS.values())
+    # Preserve the legacy JSON endpoint while allowing browser refreshes on the
+    # frontend's /scans route when the built UI is served by this process.
+    index = FRONTEND_DIR / "index.html"
+    if request.url.path == "/scans" and "text/html" in request.headers.get("accept", "") and index.is_file():
+        return FileResponse(index)
+    with _SCAN_LOCK:
+        items = [dict(item) for item in SCANS.values()]
     items.sort(key=lambda x: x.get("created_at", 0), reverse=True)
     return items[:limit]
+
+
+# The browser uses same-origin /api URLs. Keep the original endpoints for CLI
+# clients and deployments that already depend on them.
+app.include_router(api, prefix="/api")
+app.include_router(api)
+
+if (FRONTEND_DIR / "index.html").is_file():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIR / "assets"), name="frontend-assets")
+
+    @app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
+    def frontend(path: str):
+        if path == "api" or path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not found")
+        candidate = (FRONTEND_DIR / path).resolve()
+        if FRONTEND_DIR.resolve() in candidate.parents and candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(FRONTEND_DIR / "index.html")

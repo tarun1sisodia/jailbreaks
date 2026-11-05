@@ -19,3 +19,9 @@ baseline_*
 *.ledger
 *.txt
 
+
+# Build frontend dependencies in the Node stage, not in the build context.
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+!requirements.txt

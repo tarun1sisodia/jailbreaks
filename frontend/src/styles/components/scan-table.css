@@ -1,0 +1,48 @@
+/* Scan table, shared by dashboard and scan history. */
+
+.scan-table { margin-top: 12px; }
+.scan-table th:nth-child(1) { width: 25%; }
+.scan-table th:nth-child(2) { width: 11%; }
+.scan-table th:nth-child(3) { width: 15%; }
+.scan-table th:nth-child(4) { width: 21%; }
+.scan-table th:nth-child(5) { width: 11%; }
+.scan-table th:nth-child(6) { width: 13%; }
+.scan-table th:nth-child(7) { width: 4%; }
+
+.target-link { display: block; overflow: hidden; text-overflow: ellipsis; color: var(--text); user-select: text; }
+.target-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.data-table .profile-cell { color: var(--muted); }
+
+.finding-counts, .finding-counts > span { display: inline-flex; align-items: center; }
+.finding-counts { gap: 12px; font-size: 12px; }
+.finding-counts > span { gap: 5px; }
+.count-label { color: var(--muted); }
+.finding-neutral, .muted-dash { color: var(--quiet-text); font-size: 12px; }
+.data-table .time-cell { color: var(--muted); font-size: 12px; }
+
+@media (max-width: 1100px) {
+    .count-label { display: none; }
+}
+
+@media (max-width: 767px) {
+    .scan-table { min-width: 0; }
+    .scan-table th:nth-child(5), .scan-table td:nth-child(5),
+    .scan-table th:nth-child(6), .scan-table td:nth-child(6) { display: none; }
+    .scan-table th:nth-child(1) { width: 35%; }
+    .scan-table th:nth-child(2) { width: 14%; }
+    .scan-table th:nth-child(3) { width: 20%; }
+    .scan-table th:nth-child(4) { width: 27%; }
+    .scan-table th:nth-child(7) { width: 4%; }
+}
+
+@media (max-width: 520px) {
+    .scan-table th:nth-child(2), .scan-table td:nth-child(2) { display: none; }
+    .scan-table th:nth-child(1) { width: 46%; }
+    .scan-table th:nth-child(3) { width: 29%; }
+    .scan-table th:nth-child(4) { width: 21%; }
+    .scan-table th:nth-child(7) { width: 4%; }
+    .data-table.scan-table th, .data-table.scan-table td { padding-left: 4px; padding-right: 4px; }
+    .data-table.scan-table th:first-child, .data-table.scan-table td:first-child { padding-left: 0; }
+    .data-table.scan-table th:last-child, .data-table.scan-table td:last-child { padding-right: 0; }
+    .finding-counts { gap: 7px; }
+}

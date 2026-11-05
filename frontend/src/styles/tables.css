@@ -1,0 +1,20 @@
+/* Shared table structure. Imported only by routes that show tables. */
+
+.table-scroll { width: 100%; overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; text-align: left; table-layout: fixed; }
+.data-table th { height: 36px; padding: 0 10px; border-bottom: 1px solid var(--border); color: var(--quiet-text); font-size: 11px; line-height: 14px; font-weight: 500; letter-spacing: .06em; text-align: left; text-transform: uppercase; white-space: nowrap; }
+.data-table td { height: 40px; padding: 0 10px; color: var(--body); font-size: 13px; line-height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.data-table th:first-child, .data-table td:first-child { padding-left: 0; }
+.data-table th:last-child, .data-table td:last-child { padding-right: 0; }
+
+.scan-row, .finding-row { cursor: pointer; }
+.scan-row:hover td, .finding-row:hover td, .scan-row:focus-within td, .finding-row:focus td { background: var(--hover); }
+
+.action-cell { text-align: right; color: var(--faint) !important; }
+.action-cell svg { opacity: 0; vertical-align: middle; }
+tr:hover .action-cell svg, tr:focus .action-cell svg, tr:focus-within .action-cell svg { opacity: 1; }
+.table-footer { display: flex; justify-content: space-between; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--quiet-text); font-size: 10px; font-weight: 500; letter-spacing: .06em; }
+
+@media (max-width: 767px) {
+    .table-scroll { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+}

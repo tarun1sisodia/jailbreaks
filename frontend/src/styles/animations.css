@@ -1,0 +1,86 @@
+/*
+ * Motion catalog. Each selector below documents the content it animates.
+ * See frontend/ANIMATIONS.md for the full content-to-motion map and guidance.
+ * Keep motion centralized so both reduced-motion preferences cover every route.
+ */
+:root {
+  --motion-fast: 150ms;
+  --motion-enter: 220ms;
+  --motion-ease: cubic-bezier(.2, .7, .2, 1);
+}
+
+@keyframes wp-page-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes wp-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes wp-backdrop-enter {
+  from { background-color: transparent; }
+  to { background-color: var(--overlay); }
+}
+@keyframes wp-drawer-enter {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes wp-nav-enter {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes wp-menu-enter {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes wp-toast-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes wp-spin { to { transform: rotate(360deg); } }
+@keyframes wp-live-pulse { 50% { opacity: .4; } }
+
+/* Route content: headings, copy, metrics, forms, tables, and terminal as a unit. */
+.page { animation: wp-page-enter var(--motion-enter) var(--motion-ease); }
+
+/* Overlays: background fade; directional panels; centered dialogs fade in place. */
+.dialog-backdrop { animation: wp-backdrop-enter var(--motion-fast) ease-out; }
+.finding-drawer { animation: wp-drawer-enter 200ms var(--motion-ease); }
+.mobile-nav-content { animation: wp-nav-enter 200ms var(--motion-ease); }
+.modal, .command-dialog { animation: wp-fade-in var(--motion-fast) ease-out; }
+
+/* Transient content and disclosure menus. */
+.toast { animation: wp-toast-enter 180ms var(--motion-ease); }
+.export-options { animation: wp-menu-enter var(--motion-fast) ease-out; }
+
+/* Meaningful activity only: a running status / active phase and loading spinners. */
+.status-dot-running, .step-track i.step-active { animation: wp-live-pulse 2s ease-in-out infinite; }
+.spinner, .spinner-inline { animation: wp-spin 1s linear infinite; }
+
+/* Interactive feedback: navigation, actions, fields, switches and table affordances. */
+.nav-item, .icon-button { transition: background-color var(--motion-fast), color var(--motion-fast); }
+.sidebar-new, .search-trigger { transition: border-color var(--motion-fast), background-color var(--motion-fast), color var(--motion-fast); }
+.button { transition: background-color var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast), transform var(--motion-fast); }
+.button:active { transform: translateY(1px); }
+.assess-button { transition: background-color var(--motion-fast); }
+.text-input, .search-field, .select-wrap select, .scan-input-shell { transition: border-color var(--motion-fast); }
+.toggle { transition: background-color var(--motion-fast), border-color var(--motion-fast); }
+.toggle span { transition: transform var(--motion-fast), background-color var(--motion-fast); }
+.action-cell svg, .severity-meter span { transition: opacity var(--motion-fast); }
+.scan-row td, .finding-row td, .catalog-table td { transition: background-color var(--motion-fast); }
+.drawer-tabs button, .profile-option button, .theme-options button { transition: color var(--motion-fast), border-color var(--motion-fast); }
+.text-link, .subtle-link, .advanced-link, .severity-legend button, .false-positive, .inline-copy, .abort-link, .danger-link { transition: color var(--motion-fast); }
+
+/* Never hide content or keep an infinite indicator moving when motion is reduced. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .button:active { transform: none; }
+}
+:root[data-reduce-motion='true'] *,
+:root[data-reduce-motion='true'] *::before,
+:root[data-reduce-motion='true'] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+:root[data-reduce-motion='true'] .button:active { transform: none; }
