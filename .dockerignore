@@ -24,4 +24,4 @@ baseline_*
 frontend/node_modules/
 frontend/dist/
 frontend/*.tsbuildinfo
-!requirements.txt
+!backend/requirements.txt

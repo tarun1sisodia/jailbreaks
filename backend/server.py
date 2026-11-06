@@ -53,7 +53,10 @@ R2_BUCKET_NAME = os.environ.get("R2_BUCKET_NAME")
 SCANS: Dict[str, Dict[str, Any]] = {}
 _SCAN_LOCK = threading.RLock()
 _PROCESSES: Dict[str, subprocess.Popen] = {}
-FRONTEND_DIR = Path(__file__).resolve().parent / "frontend" / "dist"
+_BASE_DIR = Path(__file__).resolve().parent
+_FRONTEND_CANDIDATES = [_BASE_DIR.parent / "frontend" / "dist", _BASE_DIR / "frontend" / "dist"]
+FRONTEND_DIR = next((p for p in _FRONTEND_CANDIDATES if (p / "index.html").is_file()), _FRONTEND_CANDIDATES[0])
+WEBPROBE_CLI = _BASE_DIR / "webprobe.py"
 
 
 def _get_r2_client():
@@ -155,7 +158,7 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
     cmd = [
         sys.executable,
         "-u",  # Make the console log available while the subprocess is running.
-        "webprobe.py",
+        str(WEBPROBE_CLI),
         url,
         "--profile", profile,
         "--rate-limit", str(rate_limit),

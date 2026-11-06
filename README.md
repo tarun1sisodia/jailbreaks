@@ -23,6 +23,7 @@ Open `http://localhost:8080`. The image builds the frontend in a Node stage and 
 In one terminal, install the API dependencies and start the backend:
 
 ```bash
+cd backend
 python -m venv .venv
 # Activate .venv using the command for your shell, then:
 pip install -r requirements.txt
@@ -57,14 +58,17 @@ animation map and reduced-motion behavior.
 ### Tests
 
 ```bash
+cd backend
 pip install pytest httpx
 pytest
-cd frontend && npm test && npm run build
+cd ../frontend && npm test && npm run build
 ```
 
 ---
 
 ## 🚀 Quick Start Guide
+
+Run all `python webprobe.py` commands in this guide from `backend/`.
 
 ### 1. Prerequisites & Verification
 
@@ -81,6 +85,7 @@ python --version
 Verify internal check registries (no network requests made):
 
 ```bash
+cd backend
 python webprobe.py --self-check
 # Expected output: [+] Self-check PASSED: 136 total checks registered
 ```
@@ -89,7 +94,7 @@ python webprobe.py --self-check
 
 ### 2. Configure Your Target
 
-Configuration files live in `config/`. You can copy `config/config.example.json` or use an existing config such as `config/agraskbagheltourandtravels.json`:
+Configuration files live in `backend/config/`. You can copy `config/config.example.json` or use an existing config such as `config/agraskbagheltourandtravels.json`:
 
 ```json
 {
@@ -231,26 +236,36 @@ python webprobe.py --config config/agraskbagheltourandtravels.json --profile qui
 jailbreaks/
 ├── AGENT.md                                # Autonomous agent specification & handoff documentation
 ├── README.md                               # Project documentation & Getting Started guide
-├── webprobe.py                             # Single executable CLI entrypoint
-├── config/
-│   ├── agraskbagheltourandtravels.json     # Live target configuration template
-│   ├── config.example.json                 # Target configuration schema template
-│   └── asset_register.example.md           # Engagement asset register and scope authorization template
-├── scripts/
-│   └── refresh_session.py                  # Supabase auth token refresher utility
+├── backend/
+│   ├── server.py                           # FastAPI web API (serves the API and the built frontend)
+│   ├── webprobe.py                         # Single executable CLI entrypoint
+│   ├── requirements.txt                    # FastAPI / Uvicorn / Pydantic / boto3
+│   ├── pytest.ini                          # Pytest configuration (run pytest from backend/)
+│   ├── run_full_scan.bat                   # Windows full-scan runner (run from backend/)
+│   ├── config/
+│   │   ├── agraskbagheltourandtravels.json # Live target configuration template
+│   │   ├── config.example.json             # Target configuration schema template
+│   │   └── asset_register.example.md       # Engagement asset register and scope authorization template
+│   ├── scripts/
+│   │   └── refresh_session.py              # Supabase auth token refresher utility
+│   ├── tests/                              # Pytest suite
+│   └── webprobe/                           # Modular Python Package
+│       ├── cli.py                          # CLI orchestration and report generation
+│       ├── core/                           # HTTP client, bounded crawler, models, safety monitor
+│       └── checks/                         # 106 check implementations organized by phase
+│           ├── phase1_recon.py             # Reconnaissance, JS scanning, sitemaps
+│           ├── phase2_auth.py              # Authentication, JWT, MFA, lockout
+│           ├── phase3_injection.py         # SQLi, NoSQL, XSS, SSRF, SSTI, CMDI, LFI
+│           ├── phase4_authorization.py     # IDOR, RBAC, forced browsing, storage
+│           ├── phase5_business_logic.py    # Webhooks, payment validation, replay attacks
+│           └── phase6_infra.py             # Security headers, TLS, cache poisoning, debug flags
+├── frontend/                               # React + Vite UI (see frontend/ for its own structure)
 ├── docs/
 │   ├── operational_controls.md             # Rules of engagement and circuit breaker protocols
 │   └── playbooks/                          # Step-by-step methodologies for Phases 1 through 6
-└── webprobe/                               # Modular Python Package
-    ├── cli.py                              # CLI orchestration and report generation
-    ├── core/                               # HTTP client, bounded crawler, models, safety monitor
-    └── checks/                             # 106 check implementations organized by phase
-        ├── phase1_recon.py                 # Reconnaissance, JS scanning, sitemaps
-        ├── phase2_auth.py                  # Authentication, JWT, MFA, lockout
-        ├── phase3_injection.py             # SQLi, NoSQL, XSS, SSRF, SSTI, CMDI, LFI
-        ├── phase4_authorization.py         # IDOR, RBAC, forced browsing, storage
-        ├── phase5_business_logic.py        # Webhooks, payment validation, replay attacks
-        └── phase6_infra.py                 # Security headers, TLS, cache poisoning, debug flags
+├── Dockerfile                              # Builds frontend, then serves it from the FastAPI image
+├── docker-compose.yml                      # Local Docker run (backend + built frontend on :8080)
+└── render.yaml                             # Render Blueprint for the backend (rootDir: backend)
 ```
 
 ---
@@ -260,6 +275,7 @@ jailbreaks/
 To inspect all available command-line flags and argument groups:
 
 ```bash
+cd backend
 python webprobe.py --help
 ```
 

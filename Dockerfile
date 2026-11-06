@@ -15,12 +15,12 @@ ENV WEBPROBE_REPORTS_DIR=/app/reports
 
 WORKDIR /app
 
-COPY requirements.txt ./
+COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY webprobe/ /app/webprobe/
-COPY webprobe.py server.py /app/
-COPY config/ /app/config/
+COPY backend/webprobe/ /app/webprobe/
+COPY backend/webprobe.py backend/server.py /app/
+COPY backend/config/ /app/config/
 COPY --from=frontend /build/frontend/dist /app/frontend/dist
 
 RUN mkdir -p /app/reports && \
