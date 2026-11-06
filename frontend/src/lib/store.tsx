@@ -6,7 +6,7 @@ import { EXAMPLE_SCANS } from './examples'
 import { validApiBase } from './format'
 
 export const DEFAULT_SETTINGS: Settings = {
-  apiBase: '/api', defaultProfile: 'quick', rateLimit: 3, aimd: true, redact: true, theme: 'dark', reduceMotion: false,
+  apiBase: 'https://jailbreaks-46uf.onrender.com/api', defaultProfile: 'quick', rateLimit: 3, aimd: true, redact: true, theme: 'dark', reduceMotion: false,
 }
 
 function readSettings(): Settings {
