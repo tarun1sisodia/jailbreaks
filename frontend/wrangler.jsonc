@@ -1,7 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "assets": {
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    "directory": "./dist"
   },
   "compatibility_date": "2026-11-04",
   "name": "jailbreaks",
