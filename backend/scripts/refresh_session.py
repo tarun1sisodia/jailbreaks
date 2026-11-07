@@ -60,10 +60,17 @@ def main():
             print(f"[!] Error authenticating {email}: {e}")
             return ""
 
+    admin_password = env.get("SUPABASE_ADMIN_PASSWORD", "")
+    test_password = env.get("SUPABASE_TEST_PASSWORD", "")
+    test2_password = env.get("SUPABASE_TEST2_PASSWORD", "")
+    if not admin_password or not test_password or not test2_password:
+        print("[!] Missing SUPABASE_ADMIN_PASSWORD, SUPABASE_TEST_PASSWORD or SUPABASE_TEST2_PASSWORD in .env")
+        return 1
+
     print("[*] Refreshing Supabase authentication tokens...")
-    admin_token = get_token("skbagheltravels@gmail.com", "***REMOVED***")
-    cust1_token = get_token("test.customer@agraskbagheltourandtravels.com", "***REMOVED***")
-    cust2_token = get_token("test.customer2@agraskbagheltourandtravels.com", "***REMOVED***")
+    admin_token = get_token("skbagheltravels@gmail.com", admin_password)
+    cust1_token = get_token("test.customer@agraskbagheltourandtravels.com", test_password)
+    cust2_token = get_token("test.customer2@agraskbagheltourandtravels.com", test2_password)
 
     if not CONFIG_PATH.exists():
         print(f"[!] Config file not found at {CONFIG_PATH}")
@@ -76,7 +83,7 @@ def main():
     if cust1_token:
         creds["cookie"] = f"sb-access-token={cust1_token}; token={cust1_token}"
         creds["test_email"] = "test.customer@agraskbagheltourandtravels.com"
-        creds["test_password"] = "***REMOVED***"
+        creds.pop("test_password", None)
         print("[+] Primary customer token refreshed.")
     if cust2_token:
         creds["secondary_cookie"] = f"sb-access-token={cust2_token}; token={cust2_token}"

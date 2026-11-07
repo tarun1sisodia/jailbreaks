@@ -15,6 +15,10 @@ Thumbs.db
 .env
 .env.*
 
+# Live scan configs hold real session tokens, never commit them
+backend/config/agraskbagheltourandtravels.json
+config/agraskbagheltourandtravels.json
+
 # Generated test & scan reports
 reports/
 smoke*
