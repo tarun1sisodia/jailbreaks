@@ -4,8 +4,10 @@ FastAPI wrapper to execute webprobe vulnerability and logic scans on-demand.
 Includes CORS support for Cloudflare Pages and optional Cloudflare R2 report persistence.
 """
 
+import ipaddress
 import json
 import os
+import socket
 import subprocess
 import sys
 import threading
@@ -15,7 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, Literal, Optional
 from urllib.parse import urlsplit
 
-from fastapi import APIRouter, BackgroundTasks, FastAPI, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
@@ -31,14 +33,64 @@ app = FastAPI(
 )
 api = APIRouter()
 
-# Enable CORS for Cloudflare Pages, local dev, and custom frontend domains
+ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
+    "WEBPROBE_ALLOWED_ORIGINS",
+    "https://jailbreaks.coccoder999.workers.dev,http://localhost:5173",
+).split(",") if o.strip()]
+
+API_KEY = os.environ.get("WEBPROBE_API_KEY", "")
+ALLOW_UNAUTHENTICATED_LOCAL = os.environ.get("WEBPROBE_ALLOW_UNAUTHENTICATED_LOCAL", "") == "1"
+
+if not API_KEY and ALLOW_UNAUTHENTICATED_LOCAL:
+    print("[!] WARNING: WebProbe API running without an API key (local dev only)")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def require_api_key(x_api_key: Optional[str] = Header(default=None)):
+    if API_KEY:
+        if x_api_key != API_KEY:
+            raise HTTPException(status_code=401, detail="Invalid or missing API key")
+        return
+    if ALLOW_UNAUTHENTICATED_LOCAL:
+        return
+    raise HTTPException(status_code=401, detail="API key not configured")
+
+
+_BLOCKED_NETWORKS = [ipaddress.ip_network(n) for n in (
+    "0.0.0.0/8", "10.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16",
+    "172.16.0.0/12", "192.168.0.0/16", "::/128", "::1/128",
+    "fc00::/7", "fe80::/10",
+)]
+
+
+def _is_public_hostname(hostname: str) -> bool:
+    try:
+        infos = socket.getaddrinfo(hostname, None)
+    except socket.gaierror:
+        return False
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if any(ip in net for net in _BLOCKED_NETWORKS):
+            return False
+    return True
+
+
+def validate_public_url(raw_url: str) -> None:
+    try:
+        parsed = urlsplit(raw_url)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid URL")
+    if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password:
+        raise HTTPException(status_code=400, detail="Invalid URL scheme. Must start with http:// or https://")
+    if not _is_public_hostname(parsed.hostname):
+        raise HTTPException(status_code=400, detail="URL resolves to a private or loopback address")
 
 REPORTS_DIR = os.path.abspath(os.environ.get("WEBPROBE_REPORTS_DIR", "reports"))
 os.makedirs(REPORTS_DIR, exist_ok=True)
@@ -115,6 +167,10 @@ class ScanRequest(BaseModel):
 
 def _send_webhook_notification(callback_url: str, payload: Dict[str, Any]) -> None:
     """Best-effort notification to callback webhook."""
+    try:
+        validate_public_url(callback_url)
+    except HTTPException:
+        return
     try:
         import urllib.request
         data = json.dumps(payload).encode("utf-8")
@@ -275,19 +331,11 @@ def list_profiles() -> Dict[str, Any]:
 
 
 @api.post("/scan", status_code=status.HTTP_202_ACCEPTED, tags=["Scans"])
-def start_scan(req: ScanRequest, bg_tasks: BackgroundTasks) -> Dict[str, Any]:
+def start_scan(req: ScanRequest, bg_tasks: BackgroundTasks, _key: None = Depends(require_api_key)) -> Dict[str, Any]:
     """Trigger a web security assessment scan against a target URL."""
-    # Basic URL validation
-    try:
-        parsed = urlsplit(req.url)
-        valid_url = parsed.scheme in ("http", "https") and bool(parsed.hostname) and not parsed.username and not parsed.password
-    except ValueError:
-        valid_url = False
-    if not valid_url:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid URL scheme. Must start with http:// or https://",
-        )
+    validate_public_url(req.url)
+    if req.webhook_callback:
+        validate_public_url(req.webhook_callback)
 
     if req.profile not in PROFILES:
         raise HTTPException(status_code=400, detail="Unknown scan profile")
@@ -317,7 +365,7 @@ def start_scan(req: ScanRequest, bg_tasks: BackgroundTasks) -> Dict[str, Any]:
 
 
 @api.get("/scan/{scan_id}", tags=["Scans"])
-def get_scan_status(scan_id: str) -> Dict[str, Any]:
+def get_scan_status(scan_id: str, _key: None = Depends(require_api_key)) -> Dict[str, Any]:
     """Retrieve execution status, elapsed time, and summary findings count."""
     with _SCAN_LOCK:
         if scan_id not in SCANS:
@@ -326,7 +374,7 @@ def get_scan_status(scan_id: str) -> Dict[str, Any]:
 
 
 @api.post("/scan/{scan_id}/abort", tags=["Scans"])
-def abort_scan(scan_id: str) -> Dict[str, Any]:
+def abort_scan(scan_id: str, _key: None = Depends(require_api_key)) -> Dict[str, Any]:
     """Stop a queued or running scanner subprocess, if it is still active."""
     with _SCAN_LOCK:
         entry = SCANS.get(scan_id)
@@ -350,7 +398,7 @@ def abort_scan(scan_id: str) -> Dict[str, Any]:
 
 
 @api.get("/scan/{scan_id}/report", tags=["Reports"])
-def get_scan_report(scan_id: str, format: Literal["json", "md", "sarif", "log"] = Query("json")):
+def get_scan_report(scan_id: str, format: Literal["json", "md", "sarif", "log"] = Query("json"), _key: None = Depends(require_api_key)):
     """Retrieve the full scan report in JSON, Markdown, SARIF, or console log format."""
     if scan_id in SCANS:
         entry = SCANS[scan_id]
@@ -385,13 +433,14 @@ def get_scan_report(scan_id: str, format: Literal["json", "md", "sarif", "log"] 
 
 
 @api.get("/scans", tags=["Scans"])
-def list_scans(request: Request, limit: int = Query(50, ge=1, le=1000)) -> Any:
+def list_scans(request: Request, limit: int = Query(50, ge=1, le=1000), x_api_key: Optional[str] = Header(default=None)) -> Any:
     """List recent scans."""
     # Preserve the legacy JSON endpoint while allowing browser refreshes on the
     # frontend's /scans route when the built UI is served by this process.
     index = FRONTEND_DIR / "index.html"
     if request.url.path == "/scans" and "text/html" in request.headers.get("accept", "") and index.is_file():
         return FileResponse(index)
+    require_api_key(x_api_key)
     with _SCAN_LOCK:
         items = [dict(item) for item in SCANS.values()]
     items.sort(key=lambda x: x.get("created_at", 0), reverse=True)

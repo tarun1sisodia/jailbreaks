@@ -1,14 +1,19 @@
 """Contracts used by the WebProbe workspace, without making external requests."""
 
 import json
+import os
 import subprocess
 import sys
 import time
+
+os.environ["WEBPROBE_API_KEY"] = "test-key"
 
 import pytest
 from fastapi.testclient import TestClient
 
 import server
+
+KEY = {"X-API-Key": "test-key"}
 
 
 @pytest.fixture(autouse=True)
@@ -28,8 +33,8 @@ def isolated_server(monkeypatch, tmp_path):
 def test_prefixed_and_legacy_api_routes():
     client = TestClient(server.app)
     assert client.get("/api/health").json() == client.get("/health").json()
-    assert client.get("/api/scans").json() == []
-    assert client.get("/scans", headers={"accept": "application/json"}).json() == []
+    assert client.get("/api/scans", headers=KEY).json() == []
+    assert client.get("/scans", headers={"accept": "application/json", **KEY}).json() == []
     assert "quick" in client.get("/api/profiles").json()
 
 
@@ -38,45 +43,45 @@ def test_scans_browser_refresh_returns_ui_without_breaking_json(monkeypatch, tmp
     monkeypatch.setattr(server, "FRONTEND_DIR", tmp_path)
     client = TestClient(server.app)
     assert "WebProbe" in client.get("/scans", headers={"accept": "text/html"}).text
-    assert client.get("/scans", headers={"accept": "application/json"}).json() == []
-    assert client.get("/api/scans", headers={"accept": "text/html"}).json() == []
+    assert client.get("/scans", headers={"accept": "application/json", **KEY}).json() == []
+    assert client.get("/api/scans", headers={"accept": "text/html", **KEY}).json() == []
 
 
 def test_launch_validates_url_and_profile_and_preserves_request(monkeypatch):
     captured = []
     monkeypatch.setattr(server, "_run_scanner_job", lambda scan_id, data: captured.append((scan_id, data)))
     client = TestClient(server.app)
-    assert client.post("/api/scan", json={"url": "http://["}).status_code == 400
-    assert client.post("/api/scan", json={"url": "https://example.com", "profile": "missing"}).status_code == 400
-    response = client.post("/api/scan", json={"url": "https://example.com", "profile": "quick", "rate_limit": 2, "redact": False, "cookie": "session=fixture"})
+    assert client.post("/api/scan", json={"url": "http://["}, headers=KEY).status_code == 400
+    assert client.post("/api/scan", json={"url": "https://example.com", "profile": "missing"}, headers=KEY).status_code == 400
+    response = client.post("/api/scan", json={"url": "https://example.com", "profile": "quick", "rate_limit": 2, "redact": False, "cookie": "session=fixture"}, headers=KEY)
     assert response.status_code == 202
     scan_id = response.json()["scan_id"]
     assert captured[0][0] == scan_id
     assert captured[0][1]["cookie"] == "session=fixture"
     assert captured[0][1]["redact"] is False
-    assert client.get(f"/api/scan/{scan_id}").json()["status"] == "queued"
+    assert client.get(f"/api/scan/{scan_id}", headers=KEY).json()["status"] == "queued"
 
 
 def test_running_log_is_readable_but_report_waits(tmp_path):
     server.SCANS["test-id"] = {"scan_id": "test-id", "status": "running"}
     client = TestClient(server.app)
-    assert client.get("/api/scan/test-id/report?format=log").text == ""
+    assert client.get("/api/scan/test-id/report?format=log", headers=KEY).text == ""
     (tmp_path / "test-id.log").write_text("scanner started\n")
-    log = client.get("/api/scan/test-id/report?format=log")
+    log = client.get("/api/scan/test-id/report?format=log", headers=KEY)
     assert log.status_code == 200
     assert log.text == "scanner started\n"
-    assert client.get("/api/scan/test-id/report?format=json").status_code == 202
-    assert client.get("/api/scan/test-id/report?format=other").status_code == 422
+    assert client.get("/api/scan/test-id/report?format=json", headers=KEY).status_code == 202
+    assert client.get("/api/scan/test-id/report?format=other", headers=KEY).status_code == 422
 
 
 def test_abort_queued_scan_prevents_worker_from_starting(monkeypatch):
     server.SCANS["queued"] = {"scan_id": "queued", "status": "queued", "created_at": time.time()}
     client = TestClient(server.app)
-    assert client.post("/api/scan/queued/abort").json()["status"] == "aborted"
+    assert client.post("/api/scan/queued/abort", headers=KEY).json()["status"] == "aborted"
     monkeypatch.setattr(server.subprocess, "Popen", lambda *args, **kwargs: pytest.fail("Worker must not start"))
     server._run_scanner_job("queued", {"url": "https://example.com"})
     assert server.SCANS["queued"]["status"] == "aborted"
-    assert client.post("/api/scan/queued/abort").status_code == 409
+    assert client.post("/api/scan/queued/abort", headers=KEY).status_code == 409
 
 
 def test_abort_running_process_and_reject_finished_process():
@@ -84,13 +89,13 @@ def test_abort_running_process_and_reject_finished_process():
     server.SCANS["running"] = {"scan_id": "running", "status": "running", "started_at": time.time()}
     server._PROCESSES["running"] = process
     client = TestClient(server.app)
-    assert client.post("/api/scan/running/abort").json()["status"] == "aborted"
+    assert client.post("/api/scan/running/abort", headers=KEY).json()["status"] == "aborted"
     assert process.wait(timeout=5) != 0
-    assert client.get("/api/scan/running").json()["status"] == "aborted"
+    assert client.get("/api/scan/running", headers=KEY).json()["status"] == "aborted"
 
     server.SCANS["finishing"] = {"scan_id": "finishing", "status": "running", "started_at": time.time()}
     server._PROCESSES["finishing"] = process
-    assert client.post("/api/scan/finishing/abort").status_code == 409
+    assert client.post("/api/scan/finishing/abort", headers=KEY).status_code == 409
 
 
 def test_worker_summarizes_actual_report_and_honors_redact(monkeypatch):
@@ -116,3 +121,24 @@ def test_worker_summarizes_actual_report_and_honors_redact(monkeypatch):
     assert scan["severity_summary"]["high"] == 2
     assert "-u" in command and "--no-redact" in command
     assert "complete" not in server._PROCESSES
+
+
+def test_scan_routes_require_api_key():
+    client = TestClient(server.app)
+    assert client.post("/api/scan", json={"url": "https://example.com"}).status_code == 401
+    assert client.post("/api/scan", json={"url": "https://example.com"}, headers={"X-API-Key": "wrong"}).status_code == 401
+    assert client.get("/api/scans").status_code == 401
+    assert client.get("/api/scan/abc").status_code == 401
+    assert client.get("/api/scan/abc/report").status_code == 401
+    assert client.post("/api/scan/abc/abort").status_code == 401
+    assert client.get("/api/health").status_code == 200
+    assert client.get("/api/profiles").status_code == 200
+
+
+def test_scan_rejects_private_targets_and_webhooks():
+    client = TestClient(server.app)
+    assert client.post("/api/scan", json={"url": "http://127.0.0.1/"}, headers=KEY).status_code == 400
+    assert client.post("/api/scan", json={"url": "http://10.0.0.5/"}, headers=KEY).status_code == 400
+    assert client.post("/api/scan", json={"url": "http://169.254.169.254/latest/meta-data/"}, headers=KEY).status_code == 400
+    assert client.post("/api/scan", json={"url": "https://example.com", "webhook_callback": "http://192.168.1.1/hook"}, headers=KEY).status_code == 400
+    assert client.post("/api/scan", json={"url": "https://example.com", "webhook_callback": "ftp://example.com/hook"}, headers=KEY).status_code == 400
