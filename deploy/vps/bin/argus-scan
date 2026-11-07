@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Argus unified security scanner wrapper with scope guardrail enforcement
+set -euo pipefail
+
+TARGET="${1:-}"
+if [[ -z "$TARGET" ]]; then
+    echo "Usage: argus-scan <url|path> [args...]" >&2
+    exit 1
+fi
+
+# Guardrail validation if target is a network URL
+if [[ "$TARGET" =~ ^https?:// ]]; then
+    python3 /opt/mcp/bin/_guard.py --check "$TARGET" || exit 2
+fi
+
+exec /opt/mcp/venvs/argus/bin/argus scan \
+    --target "$TARGET" \
+    --format sarif \
+    "${@:2}"
+

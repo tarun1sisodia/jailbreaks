@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# OpenOSINT passive reconnaissance wrapper with scope guardrail enforcement
+set -euo pipefail
+
+DOMAIN="${1:-}"
+if [[ -z "$DOMAIN" ]]; then
+    echo "Usage: openosint-query <domain> [args...]" >&2
+    exit 1
+fi
+
+# Guardrail validation
+python3 /opt/mcp/bin/_guard.py --check "$DOMAIN" || exit 2
+
+exec /opt/mcp/venvs/openosint/bin/openosint run \
+    --target "$DOMAIN" \
+    --passive \
+    "${@:2}"
+

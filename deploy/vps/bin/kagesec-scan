@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# KageSec DAST template scanner wrapper with scope guardrail enforcement
+set -euo pipefail
+
+TARGET="${1:-}"
+if [[ -z "$TARGET" ]]; then
+    echo "Usage: kagesec-scan <url> [additional-kagesec-args...]" >&2
+    exit 1
+fi
+
+# Guardrail validation
+python3 /opt/mcp/bin/_guard.py --check "$TARGET" || exit 2
+
+exec /opt/mcp/venvs/kagesec/bin/kagesec scan \
+    --target "$TARGET" \
+    --output json \
+    "${@:2}"
+

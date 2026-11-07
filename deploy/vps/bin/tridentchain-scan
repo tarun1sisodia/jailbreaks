@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# TridentChain Supply Chain (SCA) scanner wrapper
+set -euo pipefail
+
+MANIFEST="${1:-}"
+if [[ -z "$MANIFEST" ]]; then
+    echo "Usage: tridentchain-scan <manifest-or-lockfile-path> [args...]" >&2
+    exit 1
+fi
+
+if [[ ! -f "$MANIFEST" ]]; then
+    echo "Error: Manifest or lockfile '$MANIFEST' does not exist." >&2
+    exit 1
+fi
+
+exec /opt/mcp/venvs/tridentchain/bin/tridentchain scan \
+    --manifest "$MANIFEST" \
+    --format json \
+    "${@:2}"
+

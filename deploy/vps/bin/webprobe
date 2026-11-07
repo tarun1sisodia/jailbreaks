@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# WebProbe CLI execution wrapper with PYTHONPATH and dedicated virtualenv
+set -euo pipefail
+
+REPO_DIR="/opt/mcp/repos/webprobe"
+PYTHON_BIN="/opt/mcp/venvs/webprobe/bin/python3"
+
+# Portable fallback if run outside /opt/mcp
+if [[ ! -x "$PYTHON_BIN" ]]; then
+    PYTHON_BIN="$(command -v python3 || command -v python)"
+fi
+if [[ ! -d "$REPO_DIR" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    REPO_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+fi
+
+export PYTHONPATH="${REPO_DIR}/backend:${PYTHONPATH:-}"
+exec "$PYTHON_BIN" "${REPO_DIR}/backend/webprobe.py" "$@"
+

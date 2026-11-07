@@ -4,6 +4,8 @@ An enterprise-grade, zero-dependency, automated web application security scanner
 
 The scanner CLI uses the Python standard library; the web API and UI have the dependencies described below.
 
+For deploying WebProbe alongside wrapped ecosystem security tools (KageSec, TridentChain, Argus, OpenOSINT, SAST) over an SSH stdio MCP bridge, see [`AGENT_VPS_DEPLOYMENT.md`](AGENT_VPS_DEPLOYMENT.md) and [`deploy/vps/`](deploy/vps/).
+
 ---
 
 ## WebProbe workspace

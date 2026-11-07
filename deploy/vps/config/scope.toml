@@ -1,0 +1,23 @@
+# WebProbe & Ecosystem Target Scope Configuration
+# Every MCP call and every CLI wrapper checks this file before taking action.
+# Targets outside allowed_hosts will be strictly rejected.
+
+[scope]
+allowed_hosts = [
+    "agraskbagheltourandtravels.com",
+    "api.agraskbagheltourandtravels.com",
+    "admin.agraskbagheltourandtravels.com",
+    "uwtcawvtchrqqojoekxf.supabase.co",
+    "localhost",
+    "127.0.0.1",
+]
+
+# Explicit deny patterns - evaluated before allowed_hosts
+[scope.deny]
+hosts = [
+    "*.gov",
+    "*.mil",
+    "*.bank",
+    "*.edu",
+]
+

@@ -159,3 +159,11 @@ Irreducible: A4 (P2 credential stuffing), B3/B5 (P2 reset email inspection), C3 
 
 These must appear in the final report as **Blocked — requires [reason]** with the exact prerequisite, not as Pass.
 
+## 15. VPS & MCP Ecosystem Deployment
+
+For orchestration of WebProbe alongside wrapped ecosystem scanners (KageSec, TridentChain, Argus, OpenOSINT, SAST) over an isolated SSH stdio MCP bridge, refer to:
+- [`AGENT_VPS_DEPLOYMENT.md`](AGENT_VPS_DEPLOYMENT.md): Complete architecture, tool interfaces, guardrails, and agent execution workflows.
+- [`deploy/vps/`](deploy/vps/): Setup scripts (`bootstrap.sh`), sync tools (`sync_to_vps.sh`), wrappers (`bin/`), and guardrail policies (`config/scope.toml`).
+- [`backend/mcp_server.py`](backend/mcp_server.py): Native MCP stdio bridge exposing `webprobe_scope_check`, `webprobe_scan`, and `webprobe_exploit`.
+
+
