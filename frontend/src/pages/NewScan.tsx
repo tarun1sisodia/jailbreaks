@@ -3,7 +3,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowRight, ChevronDown, ShieldCheck } from 'lucide-react'
-import type { ProfileId } from '../types'
+import type { EngineId, ProfileId } from '../types'
 import { api, errorMessage } from '../lib/api'
 import { profileLabel, validHttpUrl } from '../lib/format'
 import { rememberScan, useWorkspace } from '../lib/store'
@@ -22,9 +22,10 @@ const PROFILE_DESCRIPTIONS: Partial<Record<ProfileId, string>> = {
 export function NewScan() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
-  const { settings, profiles, refreshScans, toast } = useWorkspace()
+  const { settings, profiles, engines, refreshScans, toast } = useWorkspace()
   const initialProfile = params.get('profile') as ProfileId | null
   const [url, setUrl] = useState(params.get('url') || '')
+  const [engine, setEngine] = useState<EngineId>('webprobe')
   const [profile, setProfile] = useState<ProfileId>(initialProfile && PROFILE_ORDER.includes(initialProfile) ? initialProfile : settings.defaultProfile)
   const [rateLimit, setRateLimit] = useState(settings.rateLimit)
   const [aimd, setAimd] = useState(settings.aimd)
@@ -44,7 +45,7 @@ export function NewScan() {
     setUrlError(''); setSubmitError(''); setLoading(true)
     try {
       const result = await api.start(settings.apiBase, {
-        url: url.trim(), profile, rate_limit: rateLimit, aimd, redact,
+        url: url.trim(), profile, engine, rate_limit: rateLimit, aimd, redact,
         cookie, secondary_cookie: secondaryCookie, admin_cookie: adminCookie,
         webhook_callback: webhook.trim() || null,
       })
@@ -64,10 +65,19 @@ export function NewScan() {
           <section className="form-section"><div className="form-section-title"><span>01</span><h2>Target</h2></div>
             <div className="form-field"><label htmlFor="target-url">Target URL</label><input id="target-url" className={`text-input ${urlError ? 'input-invalid' : ''}`} type="url" placeholder="https://app.example.com" value={url} onChange={(event) => { setUrl(event.target.value); setUrlError('') }} autoComplete="url" />{urlError ? <p className="input-error" role="alert">{urlError}</p> : <p className="field-hint">Include http:// or https://.</p>}</div>
           </section>
-          <section className="form-section"><div className="form-section-title"><span>02</span><h2>Scan profile</h2></div>
-            <div className="form-field"><label htmlFor="scan-profile">Profile</label><select id="scan-profile" className="text-input" value={profile} onChange={(event) => setProfile(event.target.value as ProfileId)}>{PROFILE_ORDER.filter((id) => !profiles || id in profiles).map((id) => <option key={id} value={id}>{profileLabel(id)}{profiles?.[id] ? ` · ${profiles[id].count} checks` : ''}</option>)}</select><p className="field-hint">{PROFILE_DESCRIPTIONS[profile] || 'Run the checks included in this profile.'}</p></div>
+          <section className="form-section"><div className="form-section-title"><span>02</span><h2>Scan engine</h2></div>
+            <div className="form-field"><label htmlFor="scan-engine">Engine</label><select id="scan-engine" className="text-input" value={engine} onChange={(event) => setEngine(event.target.value as EngineId)}>
+              <option value="webprobe">WebProbe — built-in checks</option>
+              <option value="all">All installed engines — WebProbe, then KageSec, then OpenOSINT</option>
+              <option value="kagesec" disabled={!engines?.kagesec?.available}>KageSec — DAST + CVE templates{engines && !engines.kagesec?.available ? ' · not installed on this host' : ''}</option>
+              <option value="openosint" disabled={!engines?.openosint?.available}>OpenOSINT — passive recon intel{engines && !engines.openosint?.available ? ' · not installed on this host' : ''}</option>
+              <option value="argus" disabled>Argus — scans code, not URLs</option>
+            </select><p className="field-hint">{engine === 'openosint' ? 'Passive intel only: DNS, WHOIS, RDAP, exposure and dorks. No vulnerability findings.' : engine === 'kagesec' ? 'Active DAST scan. Only use on targets you own or are authorized to test.' : engine === 'all' ? 'Runs each installed engine in sequence and merges the findings.' : 'The built-in WebProbe checks.'}</p></div>
           </section>
-          <section className="form-section"><div className="form-section-title"><span>03</span><h2>Operational controls</h2></div>
+          <section className="form-section"><div className="form-section-title"><span>03</span><h2>Scan profile</h2></div>
+            <div className="form-field"><label htmlFor="scan-profile">Profile</label><select id="scan-profile" className="text-input" value={profile} onChange={(event) => setProfile(event.target.value as ProfileId)}>{PROFILE_ORDER.filter((id) => !profiles || id in profiles).map((id) => <option key={id} value={id}>{profileLabel(id)}{profiles?.[id] ? ` · ${profiles[id].count} checks` : ''}</option>)}</select><p className="field-hint">{engine === 'webprobe' || engine === 'all' ? (PROFILE_DESCRIPTIONS[profile] || 'Run the checks included in this profile.') : 'Profile applies to WebProbe only; KageSec and OpenOSINT ignore it.'}</p></div>
+          </section>
+          <section className="form-section"><div className="form-section-title"><span>04</span><h2>Operational controls</h2></div>
             <div className="control-row"><div><label htmlFor="scan-rate">Rate limit</label><p>Maximum requests per second.</p></div><div className="range-control"><input id="scan-rate" type="range" min="0.5" max="20" step="0.5" value={rateLimit} onChange={(event) => setRateLimit(Number(event.target.value))} /><span className="mono">{rateLimit.toFixed(1)} RPS</span></div></div>
             <div className="control-row"><div><span className="control-label">Adaptive rate limiting</span><p>Back off when the target is under stress.</p></div><Toggle label="Adaptive rate limiting" checked={aimd} onChange={setAimd} /></div>
             <div className="control-row"><div><span className="control-label">Redact secrets</span><p>Remove sensitive values from evidence.</p></div><Toggle label="Redact secrets" checked={redact} onChange={setRedact} /></div>

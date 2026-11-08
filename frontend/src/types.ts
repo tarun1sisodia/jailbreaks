@@ -1,6 +1,16 @@
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info'
 export type ScanStatus = 'queued' | 'running' | 'completed' | 'failed' | 'aborted' | 'error' | 'unknown'
 export type ProfileId = 'quick' | 'owasp' | 'full' | 'api' | 'recon' | 'auth' | 'injection' | 'authz' | 'business' | 'config' | 'exploit'
+export type EngineId = 'webprobe' | 'kagesec' | 'openosint' | 'argus' | 'all'
+export interface EngineInfo {
+  name: string
+  description: string
+  url_scan: boolean
+  available: boolean
+  binary: string | null
+  version: string | null
+}
+export type Engines = Record<string, EngineInfo>
 export type Theme = 'system' | 'dark' | 'light'
 
 export interface Settings {
@@ -24,6 +34,7 @@ export interface Scan {
   scan_id: string
   url: string
   profile: string
+  engine?: string
   status: ScanStatus
   created_at: number
   started_at?: number
@@ -39,6 +50,7 @@ export interface Scan {
 export interface ScanRequest {
   url: string
   profile: string
+  engine?: EngineId
   rate_limit: number
   aimd: boolean
   redact: boolean
@@ -101,6 +113,8 @@ export interface Report {
   metadata?: {
     target?: string
     profile?: string
+    engine?: string
+    engines?: string[]
     version?: string
     duration_seconds?: number
   }

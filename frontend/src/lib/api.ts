@@ -1,4 +1,4 @@
-import type { Health, Profiles, Report, Scan, ScanRequest, ScanStarted } from '../types'
+import type { Engines, Health, Profiles, Report, Scan, ScanRequest, ScanStarted } from '../types'
 
 export class ApiError extends Error {
   status?: number
@@ -40,6 +40,9 @@ export const api = {
   },
   async profiles(base: string): Promise<Profiles> {
     return (await request(base, '/profiles')).json()
+  },
+  async engines(base: string): Promise<Engines> {
+    return (await request(base, '/engines')).json()
   },
   async scan(base: string, id: string): Promise<Scan> {
     return (await request(base, `/scan/${encodeURIComponent(id)}`)).json()

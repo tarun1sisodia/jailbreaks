@@ -7,6 +7,7 @@ Includes CORS support for Cloudflare Pages and optional Cloudflare R2 report per
 import ipaddress
 import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -16,6 +17,8 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional
 from urllib.parse import urlsplit
+
+import engines
 
 from fastapi import APIRouter, BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -156,6 +159,10 @@ def _download_from_r2(r2_key: str, local_path: str) -> bool:
 class ScanRequest(BaseModel):
     url: str = Field(..., description="Target URL (e.g. https://example.com)")
     profile: str = Field(default="full", description="Scan profile (quick, recon, auth, injection, authz, business, config, owasp, api, full)")
+    engine: Literal["webprobe", "kagesec", "openosint", "argus", "all"] = Field(
+        default="webprobe",
+        description="Scanning engine. kagesec/openosint run only when installed on this host; argus scans code, not URLs, and is refused; all runs the installed URL engines in sequence",
+    )
     rate_limit: float = Field(default=3.0, ge=0.5, le=20.0, description="Requests per second")
     aimd: bool = Field(default=True, description="Enable adaptive rate limiting")
     redact: bool = Field(default=True, description="Redact sensitive data and PII from evidence")
@@ -186,8 +193,173 @@ def _send_webhook_notification(callback_url: str, payload: Dict[str, Any]) -> No
         pass
 
 
+def _run_kagesec(scan_id: str, url: str, log_file, redact: bool):
+    """Run `kagesec scan` in a per-scan workdir; return (findings, ok)."""
+    binary = engines.engine_binary("kagesec")
+    workdir = os.path.join(REPORTS_DIR, f"{scan_id}-kagesec")
+    os.makedirs(workdir, exist_ok=True)
+    cmd = [
+        binary, "scan", url, "--no-ai", "--output", "json",
+        "--max-pages", "10", "--depth", "2", "--timeout", "600",
+        # KageSec skips unchanged pages on repeat scans (delta mode,
+        # ~/.kagesec/crawl_state). A dashboard scan must report the
+        # target as it is now, so force a full scan every time.
+        "--full",
+    ]
+    if not engines.kagesec_browser_available():
+        cmd.append("--no-browser")
+    with _SCAN_LOCK:
+        _PROCESSES[scan_id] = subprocess.Popen(
+            cmd, stdout=log_file, stderr=subprocess.STDOUT, text=True, cwd=workdir
+        )
+        proc = _PROCESSES[scan_id]
+    returncode = proc.wait()
+    raw_path = os.path.join(workdir, "reports", "kagesec_report.json")
+    if returncode == 0 and os.path.exists(raw_path):
+        with open(raw_path, "r", encoding="utf-8") as f:
+            return engines.normalize_kagesec(json.load(f), redact=redact), True
+    return [], False
+
+
+def _run_openosint(scan_id: str, url: str, log_file):
+    """Run OpenOSINT direct tools (no AI, no key) for a domain; return (findings, ok)."""
+    binary = engines.engine_binary("openosint")
+    host = urlsplit(url).hostname or url
+    outputs = []
+    for subcommand in ("dns", "whois", "rdap", "exposure", "dorks"):
+        try:
+            proc = subprocess.run(
+                [binary, "--json", subcommand, host],
+                capture_output=True, text=True, timeout=120,
+            )
+        except Exception as exc:
+            log_file.write(f"[openosint] {subcommand} failed: {exc}\n")
+            continue
+        log_file.write(proc.stdout or "")
+        log_file.write(proc.stderr or "")
+        data = engines._openosint_json(proc.stdout or "")
+        if data:
+            outputs.append(data)
+    return engines.normalize_openosint(outputs), bool(outputs)
+
+
 def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
-    """Background task worker that executes the scanner subprocess."""
+    """Background task worker: dispatch to one engine, or all installed URL engines in sequence."""
+    engine = req_data.get("engine", "webprobe")
+    if engine == "webprobe":
+        _run_webprobe_job(scan_id, req_data)
+        return
+    if engine == "all":
+        names = [name for name in ("webprobe", "kagesec", "openosint") if engines.engine_available(name)]
+    else:
+        names = [engine]
+
+    with _SCAN_LOCK:
+        entry = SCANS[scan_id]
+        if entry["status"] == "aborted":
+            return
+        entry["status"] = "running"
+        entry["started_at"] = time.time()
+
+    url = req_data["url"]
+    profile = req_data.get("profile", "full")
+    redact = req_data.get("redact", True)
+    callback = req_data.get("webhook_callback")
+    json_path = os.path.join(REPORTS_DIR, f"{scan_id}.json")
+    md_path = os.path.join(REPORTS_DIR, f"{scan_id}.md")
+    sarif_path = os.path.join(REPORTS_DIR, f"{scan_id}.sarif")
+    log_path = os.path.join(REPORTS_DIR, f"{scan_id}.log")
+    findings: list = []
+    ran: list = []
+    ok = False
+    try:
+        # WebProbe first, on its own: it opens the log in "w" mode itself,
+        # so a second "w" handle from this function would truncate its output.
+        if "webprobe" in names:
+            with _SCAN_LOCK:
+                if SCANS[scan_id]["status"] != "aborted":
+                    _run_webprobe_job(scan_id, {**req_data, "engine": "webprobe", "webhook_callback": None})
+                    if os.path.exists(json_path):
+                        with open(json_path, "r", encoding="utf-8") as f:
+                            webprobe_findings = json.load(f).get("findings", [])
+                        for finding in webprobe_findings:
+                            finding.setdefault("engine", "webprobe")
+                        findings.extend(webprobe_findings)
+                        ran.append("webprobe")
+                        ok = True
+        with open(log_path, "a", encoding="utf-8") as log_file:
+            for name in names:
+                if name == "webprobe":
+                    continue
+                with _SCAN_LOCK:
+                    if SCANS[scan_id]["status"] == "aborted":
+                        break
+                if name == "kagesec":
+                    found, succeeded = _run_kagesec(scan_id, url, log_file, redact)
+                    if succeeded:
+                        findings.extend(found)
+                        ran.append(name)
+                        ok = True
+                elif name == "openosint":
+                    found, succeeded = _run_openosint(scan_id, url, log_file)
+                    if succeeded:
+                        findings.extend(found)
+                        ran.append(name)
+                        ok = True
+        findings = engines.dedupe_findings(findings)
+        duration = round(time.time() - SCANS[scan_id]["started_at"], 2)
+        report = engines.webprobe_report(url, engine, ran, findings, duration)
+        report["metadata"]["profile"] = profile
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2)
+        with open(md_path, "w", encoding="utf-8") as f:
+            f.write(engines.markdown_summary(url, engine, findings))
+        with open(sarif_path, "w", encoding="utf-8") as f:
+            json.dump(engines.sarif_from_findings(findings, url), f, indent=2)
+        summary = {
+            severity: sum(1 for finding in findings if finding.get("severity", "").lower() == severity)
+            for severity in ("critical", "high", "medium", "low", "info")
+        }
+        with _SCAN_LOCK:
+            _PROCESSES.pop(scan_id, None)
+            entry["ended_at"] = time.time()
+            entry["duration_seconds"] = duration
+            if entry["status"] == "aborted":
+                completed = False
+            elif ok:
+                entry["status"] = "completed"
+                entry["findings_count"] = len(findings)
+                entry["severity_summary"] = summary
+                completed = True
+            else:
+                entry["status"] = "failed"
+                completed = False
+        if completed:
+            _upload_to_r2(json_path, f"reports/{scan_id}.json")
+            _upload_to_r2(md_path, f"reports/{scan_id}.md")
+            _upload_to_r2(sarif_path, f"reports/{scan_id}.sarif")
+            _upload_to_r2(log_path, f"reports/{scan_id}.log")
+    except Exception as exc:
+        with _SCAN_LOCK:
+            _PROCESSES.pop(scan_id, None)
+            if entry["status"] != "aborted":
+                entry["status"] = "error"
+                entry["error"] = str(exc)
+            entry["ended_at"] = time.time()
+            entry["duration_seconds"] = round(entry["ended_at"] - entry["started_at"], 2)
+    if callback:
+        _send_webhook_notification(callback, {
+            "scan_id": scan_id,
+            "target": url,
+            "status": entry["status"],
+            "findings_count": entry.get("findings_count", 0),
+            "severity_summary": entry.get("severity_summary", {}),
+            "duration_seconds": entry.get("duration_seconds", 0),
+        })
+
+
+def _run_webprobe_job(scan_id: str, req_data: Dict[str, Any]) -> None:
+    """Background task worker that executes the WebProbe scanner subprocess."""
     with _SCAN_LOCK:
         entry = SCANS[scan_id]
         # An assessment can be cancelled before the background worker starts.
@@ -314,8 +486,16 @@ def health_check() -> Dict[str, Any]:
         "version": VERSION,
         "total_checks": len(ALL_CHECKS),
         "profiles": list(PROFILES.keys()),
+        "engines": [name for name in engines.ENGINES if engines.engine_available(name)],
         "r2_storage_enabled": bool(R2_ACCOUNT_ID and R2_BUCKET_NAME),
     }
+
+
+@api.get("/engines", tags=["Configuration"])
+def list_engines() -> Dict[str, Any]:
+    """Which scan engines are installed on this host. Public like /health:
+    it only names installed tools, and the frontend has no API-key wiring yet."""
+    return engines.engine_status()
 
 
 @api.get("/profiles", tags=["Configuration"])
@@ -337,7 +517,18 @@ def start_scan(req: ScanRequest, bg_tasks: BackgroundTasks, _key: None = Depends
     if req.webhook_callback:
         validate_public_url(req.webhook_callback)
 
-    if req.profile not in PROFILES:
+    if req.engine == "argus":
+        raise HTTPException(
+            status_code=400,
+            detail="Argus scans a code path, not a live URL, so it cannot run from /api/scan. Pass a repo path to Argus directly.",
+        )
+    if req.engine != "webprobe" and req.engine != "all" and not engines.engine_available(req.engine):
+        binary = engines.engine_binary(req.engine)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Engine '{req.engine}' is not installed on this host (binary '{binary}' not found).",
+        )
+    if req.engine in ("webprobe", "all") and req.profile not in PROFILES:
         raise HTTPException(status_code=400, detail="Unknown scan profile")
 
     scan_id = str(uuid.uuid4())
@@ -346,6 +537,7 @@ def start_scan(req: ScanRequest, bg_tasks: BackgroundTasks, _key: None = Depends
             "scan_id": scan_id,
             "url": req.url,
             "profile": req.profile,
+            "engine": req.engine,
             "status": "queued",
             "created_at": time.time(),
             "findings_count": 0,
@@ -358,6 +550,7 @@ def start_scan(req: ScanRequest, bg_tasks: BackgroundTasks, _key: None = Depends
         "scan_id": scan_id,
         "target": req.url,
         "profile": req.profile,
+        "engine": req.engine,
         "status": "queued",
         "status_url": f"/scan/{scan_id}",
         "report_url": f"/scan/{scan_id}/report?format=json",

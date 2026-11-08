@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Health, Profiles, Scan, Settings } from '../types'
+import type { Engines, Health, Profiles, Scan, Settings } from '../types'
 import { api, errorMessage } from './api'
 import { EXAMPLE_SCANS } from './examples'
 import { validApiBase } from './format'
@@ -36,9 +36,11 @@ interface WorkspaceContext {
   showingExamples: boolean
   scansError: string
   profiles: Profiles | null
+  engines: Engines | null
   refreshHealth: () => Promise<void>
   refreshScans: () => Promise<void>
   refreshProfiles: () => Promise<void>
+  refreshEngines: () => Promise<void>
   toast: (message: string, kind?: 'success' | 'error' | 'info') => void
 }
 
@@ -52,6 +54,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [scans, setScans] = useState<Scan[] | null>(null)
   const [scansError, setScansError] = useState('')
   const [profiles, setProfiles] = useState<Profiles | null>(null)
+  const [engines, setEngines] = useState<Engines | null>(null)
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const currentApiBase = useRef(settings.apiBase)
   currentApiBase.current = settings.apiBase
@@ -88,14 +91,21 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     try { const result = await api.profiles(base); if (currentApiBase.current === base) setProfiles(result) }
     catch { if (currentApiBase.current === base) setProfiles(null) }
   }, [settings.apiBase])
+  const refreshEngines = useCallback(async () => {
+    const base = settings.apiBase
+    try { const result = await api.engines(base); if (currentApiBase.current === base) setEngines(result) }
+    catch { if (currentApiBase.current === base) setEngines(null) }
+  }, [settings.apiBase])
 
   useEffect(() => {
     setHealth(null)
     setHealthLoading(true)
     setScans(null)
     setProfiles(null)
+    setEngines(null)
     void refreshHealth()
     void refreshScans()
+    void refreshEngines()
     const healthInterval = window.setInterval(() => { void refreshHealth() }, 30000)
     const scansInterval = window.setInterval(() => { void refreshScans() }, 10000)
     const onFocus = () => { void refreshHealth(); void refreshScans() }
@@ -105,7 +115,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (health && !profiles) void refreshProfiles()
-  }, [health, profiles, refreshProfiles])
+    if (health && !engines) void refreshEngines()
+  }, [health, profiles, engines, refreshProfiles, refreshEngines])
 
   const toast = useCallback((message: string, kind: ToastItem['kind'] = 'info') => {
     const id = Date.now() + Math.random()
@@ -116,8 +127,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const showingExamples = !scans || scans.length === 0
   const value = useMemo(() => ({
     settings, updateSettings, health, healthLoading, scans, visibleScans: showingExamples ? EXAMPLE_SCANS : (scans || []),
-    showingExamples, scansError, profiles, refreshHealth, refreshScans, refreshProfiles, toast,
-  }), [settings, updateSettings, health, healthLoading, scans, showingExamples, scansError, profiles, refreshHealth, refreshScans, refreshProfiles, toast])
+    showingExamples, scansError, profiles, engines, refreshHealth, refreshScans, refreshProfiles, refreshEngines, toast,
+  }), [settings, updateSettings, health, healthLoading, scans, showingExamples, scansError, profiles, engines, refreshHealth, refreshScans, refreshProfiles, refreshEngines, toast])
 
   return <Context.Provider value={value}>
     {children}
