@@ -4,15 +4,15 @@
 // This Worker holds the backend keys in Workers Secrets (env, never in
 // code or git) and adds the backend auth header server-side.
 //
-// Secrets to set with `wrangler secret put` (values are never in this file):
+// Required Secrets / Environment Variables:
 //   RENDER_API_URL   e.g. https://jailbreaks-46uf.onrender.com/api
 //   RENDER_API_KEY   the Render-only backend key
-//   BOX6_API_URL     e.g. https://8000-<id>.instabox.tech/api  (box6 private port)
+//   BOX6_API_URL     e.g. https://8000-<id>.instabox.tech/api  (box6 public port)
 //   BOX6_API_KEY     the box6-only backend key
-//   BOX6_PORT_TOKEN  the InstaBox private-port token, appended as ?_token=
 //   WAKE_URL         e.g. https://jailbreaks-46uf.onrender.com/api/wake/box6
 //   WAKE_SECRET      shared secret this Worker sends to the wake endpoint
 //   ALLOWED_ORIGINS  comma list, default Workers origin + localhost:5173
+//   BOX6_PORT_TOKEN  [OPTIONAL] legacy token if private port used; omitted for public port
 //
 // Routing by engine:
 //   webprobe                         -> Render (always on)
@@ -61,6 +61,7 @@ function jsonResponse(env, request, body, status = 200) {
 
 function box6Url(env, path) {
   const base = (env.BOX6_API_URL || '').replace(/\/+$/, '')
+  if (!base) return ''
   const sep = path.includes('?') ? '&' : '?'
   const token = env.BOX6_PORT_TOKEN ? `${sep}_token=${encodeURIComponent(env.BOX6_PORT_TOKEN)}` : ''
   return `${base}${path}${token}`
@@ -77,17 +78,35 @@ async function fetchWithTimeout(url, init, ms) {
 }
 
 async function upstreamJson(url, init, ms = 15000) {
-  const res = await fetchWithTimeout(url, init, ms)
-  const text = await res.text()
-  let body = null
-  try { body = text ? JSON.parse(text) : null } catch { body = text }
-  return { status: res.status, body, headers: res.headers }
+  if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
+    return {
+      status: 502,
+      body: { detail: `Backend URL is not configured or invalid (${url || 'empty'})` },
+      headers: new Headers(),
+    }
+  }
+  try {
+    const res = await fetchWithTimeout(url, init, ms)
+    const text = await res.text()
+    let body = null
+    try { body = text ? JSON.parse(text) : null } catch { body = text }
+    return { status: res.status, body, headers: res.headers }
+  } catch (err) {
+    const isTimeout = err && (err.name === 'AbortError' || err.message?.includes('aborted'))
+    return {
+      status: isTimeout ? 504 : 502,
+      body: { detail: isTimeout ? `Upstream timeout after ${ms}ms` : `Upstream connection failed: ${err?.message || err}` },
+      headers: new Headers(),
+    }
+  }
 }
 
 async function box6Healthy(env) {
   if (!env.BOX6_API_URL || !env.BOX6_API_KEY) return false
+  const target = box6Url(env, '/health')
+  if (!target) return false
   try {
-    const res = await fetchWithTimeout(box6Url(env, '/health'), { headers: { Accept: 'application/json' } }, 4000)
+    const res = await fetchWithTimeout(target, { headers: { Accept: 'application/json' } }, 4000)
     return res.ok
   } catch {
     return false
@@ -119,6 +138,9 @@ async function forwardScan(env, body) {
 
   // WebProbe always goes to Render: always on, no wake needed.
   if (engine === 'webprobe') {
+    if (!renderUrl) {
+      return { status: 503, body: { detail: 'RENDER_API_URL is not configured' }, engineUsed: 'webprobe' }
+    }
     const res = await upstreamJson(`${renderUrl}/scan`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-API-Key': renderKey },
@@ -157,11 +179,6 @@ async function forwardScan(env, body) {
   }
 
   // URL engines: fall back to Render WebProbe-only, flagged explicitly.
-  // If the wake is still in progress, tell the user to retry for the full
-  // engines first — but only once: the fallback below runs when wake has
-  // definitively failed (not configured / timeout after a retry is the
-  // caller's choice). To keep this honest, a wake in progress returns
-  // 202 waking instead of a silent fallback.
   if (wake.state === 'wake_timeout' || wake.state === 'waking' || wake.state === 'resuming') {
     return {
       status: 202,
@@ -206,103 +223,119 @@ async function forwardById(env, request, path, method, body) {
 
 export default {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url)
-    const origin = request.headers.get('Origin') || ''
+    try {
+      const url = new URL(request.url)
+      const origin = request.headers.get('Origin') || ''
 
-    // Preflight: only allowed origins, GET/POST only.
-    if (request.method === 'OPTIONS') {
-      const headers = corsHeaders(env, request)
-      if (!headers['Access-Control-Allow-Origin']) {
-        return new Response('Origin not allowed', { status: 400, headers: { Vary: 'Origin' } })
-      }
-      return new Response(null, {
-        status: 204,
-        headers: {
-          ...headers,
-          'Access-Control-Allow-Methods': 'GET, POST',
-          'Access-Control-Allow-Headers': 'Content-Type, Accept',
-          'Access-Control-Max-Age': '86400',
-        },
-      })
-    }
-    if (request.method !== 'GET' && request.method !== 'POST') {
-      return jsonResponse(env, request, { detail: 'Method not allowed' }, 405)
-    }
-    // Same-origin calls have no Origin; cross-origin calls must be allowed.
-    if (origin && !allowedOrigins(env).includes(origin)) {
-      return jsonResponse(env, request, { detail: 'Origin not allowed' }, 400)
-    }
-
-    const renderUrl = (env.RENDER_API_URL || '').replace(/\/+$/, '')
-    const renderKey = env.RENDER_API_KEY || ''
-
-    // /api/health — Render only. Never contacts box6 (no keepalive polling).
-    if (url.pathname === '/api/health' && request.method === 'GET') {
-      const res = await upstreamJson(`${renderUrl}/health`, { headers: { Accept: 'application/json' } }, 10000)
-      const body = res.body && typeof res.body === 'object' ? { ...res.body, proxy: 'workers', box6_engines: Object.keys(BOX6_ENGINES) } : res.body
-      return jsonResponse(env, request, body, res.status)
-    }
-
-    // /api/engines — union of Render (live) and box6 (known installed,
-    // wake on demand). No box6 contact, so no keepalive.
-    if (url.pathname === '/api/engines' && request.method === 'GET') {
-      const res = await upstreamJson(`${renderUrl}/engines`, { headers: { Accept: 'application/json' } }, 10000)
-      const merged = res.body && typeof res.body === 'object' ? { ...res.body } : {}
-      for (const [name, info] of Object.entries(BOX6_ENGINES)) merged[name] = info
-      return jsonResponse(env, request, merged, res.status)
-    }
-
-    if (url.pathname === '/api/profiles' && request.method === 'GET') {
-      const res = await upstreamJson(`${renderUrl}/profiles`, { headers: { Accept: 'application/json' } }, 10000)
-      return jsonResponse(env, request, res.body, res.status)
-    }
-
-    if (url.pathname === '/api/scans' && request.method === 'GET') {
-      const res = await upstreamJson(`${renderUrl}/scans?limit=1000`, { headers: { 'X-API-Key': renderKey, Accept: 'application/json' } }, 10000)
-      return jsonResponse(env, request, res.body, res.status)
-    }
-
-    if (url.pathname === '/api/scan' && request.method === 'POST') {
-      let body
-      try { body = await request.json() } catch { return jsonResponse(env, request, { detail: 'Invalid JSON body' }, 400) }
-      if (!body || typeof body !== 'object') return jsonResponse(env, request, { detail: 'Invalid scan request' }, 400)
-      const engine = body.engine || 'webprobe'
-      if (!['webprobe', 'kagesec', 'openosint', 'argus', 'all'].includes(engine)) {
-        return jsonResponse(env, request, { detail: `Unknown engine: ${engine}` }, 400)
-      }
-      if (engine === 'argus' && !body.repo) {
-        return jsonResponse(env, request, { detail: "Engine 'argus' scans code: pass 'repo' as a git URL or a directory path." }, 400)
-      }
-      if (engine !== 'argus' && !body.url) {
-        return jsonResponse(env, request, { detail: 'Pass a target URL for this engine.' }, 400)
-      }
-      const out = await forwardScan(env, body)
-      return jsonResponse(env, request, out.body, out.status)
-    }
-
-    const scanMatch = url.pathname.match(/^\/api\/scan\/([^/]+)(\/abort|\/report)?$/)
-    if (scanMatch) {
-      const id = scanMatch[1]
-      const suffix = scanMatch[2] || ''
-      const path = `/scan/${encodeURIComponent(id)}${suffix}${url.search || ''}`
-      if (suffix === '/abort' && request.method === 'POST') {
-        const res = await forwardById(env, request, path, 'POST')
-        return jsonResponse(env, request, res.body, res.status)
-      }
-      if (request.method === 'GET') {
-        const res = await forwardById(env, request, path, 'GET')
-        // Report downloads: pass through non-JSON bodies unchanged.
-        if (suffix === '/report' && typeof res.body === 'string') {
-          return new Response(res.body, { status: res.status, headers: { ...corsHeaders(env, request), 'Content-Type': res.headers.get('content-type') || 'text/plain' } })
+      // Preflight: only allowed origins, GET/POST only.
+      if (request.method === 'OPTIONS') {
+        const headers = corsHeaders(env, request)
+        if (!headers['Access-Control-Allow-Origin']) {
+          return new Response('Origin not allowed', { status: 400, headers: { Vary: 'Origin' } })
         }
+        return new Response(null, {
+          status: 204,
+          headers: {
+            ...headers,
+            'Access-Control-Allow-Methods': 'GET, POST',
+            'Access-Control-Allow-Headers': 'Content-Type, Accept',
+            'Access-Control-Max-Age': '86400',
+          },
+        })
+      }
+      if (request.method !== 'GET' && request.method !== 'POST') {
+        return jsonResponse(env, request, { detail: 'Method not allowed' }, 405)
+      }
+      // Same-origin calls have no Origin; cross-origin calls must be allowed.
+      if (origin && !allowedOrigins(env).includes(origin)) {
+        return jsonResponse(env, request, { detail: 'Origin not allowed' }, 400)
+      }
+
+      const renderUrl = (env.RENDER_API_URL || '').replace(/\/+$/, '')
+      const renderKey = env.RENDER_API_KEY || ''
+
+      // /api/health — Render only. Never contacts box6 (no keepalive polling).
+      if (url.pathname === '/api/health' && request.method === 'GET') {
+        if (!renderUrl) {
+          return jsonResponse(env, request, { detail: 'RENDER_API_URL is not configured in Workers variables' }, 503)
+        }
+        const res = await upstreamJson(`${renderUrl}/health`, { headers: { Accept: 'application/json' } }, 10000)
+        const body = res.body && typeof res.body === 'object' ? { ...res.body, proxy: 'workers', box6_engines: Object.keys(BOX6_ENGINES) } : res.body
+        return jsonResponse(env, request, body, res.status)
+      }
+
+      // /api/engines — union of Render (live) and box6 (known installed,
+      // wake on demand). No box6 contact, so no keepalive.
+      if (url.pathname === '/api/engines' && request.method === 'GET') {
+        if (!renderUrl) {
+          return jsonResponse(env, request, { detail: 'RENDER_API_URL is not configured in Workers variables' }, 503)
+        }
+        const res = await upstreamJson(`${renderUrl}/engines`, { headers: { Accept: 'application/json' } }, 10000)
+        const merged = res.body && typeof res.body === 'object' ? { ...res.body } : {}
+        for (const [name, info] of Object.entries(BOX6_ENGINES)) merged[name] = info
+        return jsonResponse(env, request, merged, res.status)
+      }
+
+      if (url.pathname === '/api/profiles' && request.method === 'GET') {
+        if (!renderUrl) {
+          return jsonResponse(env, request, { detail: 'RENDER_API_URL is not configured in Workers variables' }, 503)
+        }
+        const res = await upstreamJson(`${renderUrl}/profiles`, { headers: { Accept: 'application/json' } }, 10000)
         return jsonResponse(env, request, res.body, res.status)
       }
-    }
 
-    // Anything else under /api is not proxied; other paths are the SPA.
-    if (url.pathname.startsWith('/api/')) {
-      return jsonResponse(env, request, { detail: 'Not found' }, 404)
+      if (url.pathname === '/api/scans' && request.method === 'GET') {
+        if (!renderUrl) {
+          return jsonResponse(env, request, { detail: 'RENDER_API_URL is not configured in Workers variables' }, 503)
+        }
+        const res = await upstreamJson(`${renderUrl}/scans?limit=1000`, { headers: { 'X-API-Key': renderKey, Accept: 'application/json' } }, 10000)
+        return jsonResponse(env, request, res.body, res.status)
+      }
+
+      if (url.pathname === '/api/scan' && request.method === 'POST') {
+        let body
+        try { body = await request.json() } catch { return jsonResponse(env, request, { detail: 'Invalid JSON body' }, 400) }
+        if (!body || typeof body !== 'object') return jsonResponse(env, request, { detail: 'Invalid scan request' }, 400)
+        const engine = body.engine || 'webprobe'
+        if (!['webprobe', 'kagesec', 'openosint', 'argus', 'all'].includes(engine)) {
+          return jsonResponse(env, request, { detail: `Unknown engine: ${engine}` }, 400)
+        }
+        if (engine === 'argus' && !body.repo) {
+          return jsonResponse(env, request, { detail: "Engine 'argus' scans code: pass 'repo' as a git URL or a directory path." }, 400)
+        }
+        if (engine !== 'argus' && !body.url) {
+          return jsonResponse(env, request, { detail: 'Pass a target URL for this engine.' }, 400)
+        }
+        const out = await forwardScan(env, body)
+        return jsonResponse(env, request, out.body, out.status)
+      }
+
+      const scanMatch = url.pathname.match(/^\/api\/scan\/([^/]+)(\/abort|\/report)?$/)
+      if (scanMatch) {
+        const id = scanMatch[1]
+        const suffix = scanMatch[2] || ''
+        const path = `/scan/${encodeURIComponent(id)}${suffix}${url.search || ''}`
+        if (suffix === '/abort' && request.method === 'POST') {
+          const res = await forwardById(env, request, path, 'POST')
+          return jsonResponse(env, request, res.body, res.status)
+        }
+        if (request.method === 'GET') {
+          const res = await forwardById(env, request, path, 'GET')
+          // Report downloads: pass through non-JSON bodies unchanged.
+          if (suffix === '/report' && typeof res.body === 'string') {
+            return new Response(res.body, { status: res.status, headers: { ...corsHeaders(env, request), 'Content-Type': res.headers.get('content-type') || 'text/plain' } })
+          }
+          return jsonResponse(env, request, res.body, res.status)
+        }
+      }
+
+      // Anything else under /api is not proxied; other paths are the SPA.
+      if (url.pathname.startsWith('/api/')) {
+        return jsonResponse(env, request, { detail: 'Not found' }, 404)
+      }
+      return env.ASSETS.fetch(request)
+    } catch (err) {
+      return jsonResponse(env, request, { detail: `Workers proxy error: ${err?.message || err}` }, 500)
     }
-    return env.ASSETS.fetch(request)
   },
 }
