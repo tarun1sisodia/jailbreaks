@@ -15,5 +15,11 @@
   "name": "jailbreaks",
   "observability": {
     "enabled": true
+  },
+  "vars": {
+    "RENDER_API_URL": "https://jailbreaks-46uf.onrender.com/api",
+    "BOX6_API_URL": "https://8000-agq3oekm7yaprv7dohu23wsj2y.instabox.tech/api",
+    "WAKE_URL": "https://jailbreaks-46uf.onrender.com/api/wake/box6",
+    "ALLOWED_ORIGINS": "https://jailbreaks.coccoder999.workers.dev,http://localhost:5173"
   }
 }

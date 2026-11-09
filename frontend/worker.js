@@ -40,6 +40,31 @@ const BOX6_ENGINES = {
 }
 const URL_ENGINES = new Set(['webprobe', 'kagesec', 'openosint', 'all'])
 
+const DEFAULTS = {
+  RENDER_API_URL: 'https://jailbreaks-46uf.onrender.com/api',
+  RENDER_API_KEY: '422a800c9d29bc52bed66bc7a2f075e1be499175db7bdf9c23ead1a82c44f5c7',
+  BOX6_API_URL: 'https://8000-agq3oekm7yaprv7dohu23wsj2y.instabox.tech/api',
+  BOX6_API_KEY: '2uorf0L7GmD3DHHN6_yZC8pvpWvZQAGF3RYTR1YSpQo',
+  WAKE_URL: 'https://jailbreaks-46uf.onrender.com/api/wake/box6',
+  WAKE_SECRET: '30c6d814551f5abf48307dc87f48abd4',
+  ALLOWED_ORIGINS: 'https://jailbreaks.coccoder999.workers.dev,http://localhost:5173',
+}
+
+function resolveEnv(raw) {
+  const e = raw || {}
+  return {
+    RENDER_API_URL: e.RENDER_API_URL || DEFAULTS.RENDER_API_URL,
+    RENDER_API_KEY: e.RENDER_API_KEY || DEFAULTS.RENDER_API_KEY,
+    BOX6_API_URL: e.BOX6_API_URL || DEFAULTS.BOX6_API_URL,
+    BOX6_API_KEY: e.BOX6_API_KEY || DEFAULTS.BOX6_API_KEY,
+    WAKE_URL: e.WAKE_URL || DEFAULTS.WAKE_URL,
+    WAKE_SECRET: e.WAKE_SECRET || DEFAULTS.WAKE_SECRET,
+    ALLOWED_ORIGINS: e.ALLOWED_ORIGINS || DEFAULTS.ALLOWED_ORIGINS,
+    BOX6_PORT_TOKEN: e.BOX6_PORT_TOKEN || '',
+    ASSETS: e.ASSETS,
+  }
+}
+
 function allowedOrigins(env) {
   return (env.ALLOWED_ORIGINS || DEFAULT_ORIGINS).split(',').map((s) => s.trim()).filter(Boolean)
 }
@@ -222,7 +247,8 @@ async function forwardById(env, request, path, method, body) {
 }
 
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request, rawEnv, ctx) {
+    const env = resolveEnv(rawEnv)
     try {
       const url = new URL(request.url)
       const origin = request.headers.get('Origin') || ''
@@ -259,7 +285,7 @@ export default {
         if (!renderUrl) {
           return jsonResponse(env, request, { detail: 'RENDER_API_URL is not configured in Workers variables' }, 503)
         }
-        const res = await upstreamJson(`${renderUrl}/health`, { headers: { Accept: 'application/json' } }, 10000)
+        const res = await upstreamJson(`${renderUrl}/health`, { headers: { Accept: 'application/json' } }, 15000)
         const body = res.body && typeof res.body === 'object' ? { ...res.body, proxy: 'workers', box6_engines: Object.keys(BOX6_ENGINES) } : res.body
         return jsonResponse(env, request, body, res.status)
       }
@@ -270,7 +296,7 @@ export default {
         if (!renderUrl) {
           return jsonResponse(env, request, { detail: 'RENDER_API_URL is not configured in Workers variables' }, 503)
         }
-        const res = await upstreamJson(`${renderUrl}/engines`, { headers: { Accept: 'application/json' } }, 10000)
+        const res = await upstreamJson(`${renderUrl}/engines`, { headers: { Accept: 'application/json' } }, 15000)
         const merged = res.body && typeof res.body === 'object' ? { ...res.body } : {}
         for (const [name, info] of Object.entries(BOX6_ENGINES)) merged[name] = info
         return jsonResponse(env, request, merged, res.status)
@@ -280,7 +306,7 @@ export default {
         if (!renderUrl) {
           return jsonResponse(env, request, { detail: 'RENDER_API_URL is not configured in Workers variables' }, 503)
         }
-        const res = await upstreamJson(`${renderUrl}/profiles`, { headers: { Accept: 'application/json' } }, 10000)
+        const res = await upstreamJson(`${renderUrl}/profiles`, { headers: { Accept: 'application/json' } }, 15000)
         return jsonResponse(env, request, res.body, res.status)
       }
 
@@ -288,7 +314,7 @@ export default {
         if (!renderUrl) {
           return jsonResponse(env, request, { detail: 'RENDER_API_URL is not configured in Workers variables' }, 503)
         }
-        const res = await upstreamJson(`${renderUrl}/scans?limit=1000`, { headers: { 'X-API-Key': renderKey, Accept: 'application/json' } }, 10000)
+        const res = await upstreamJson(`${renderUrl}/scans?limit=1000`, { headers: { 'X-API-Key': renderKey, Accept: 'application/json' } }, 15000)
         return jsonResponse(env, request, res.body, res.status)
       }
 

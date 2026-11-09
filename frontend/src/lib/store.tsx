@@ -118,11 +118,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     window.setTimeout(() => setToasts((items) => items.filter((item) => item.id !== id)), kind === 'error' ? 8000 : 4500)
   }, [])
 
-  const showingExamples = !scans || scans.length === 0
+  const showingExamples = false
   const value = useMemo(() => ({
-    settings, updateSettings, health, healthLoading, scans, visibleScans: showingExamples ? EXAMPLE_SCANS : (scans || []),
+    settings, updateSettings, health, healthLoading, scans, visibleScans: scans || [],
     showingExamples, scansError, profiles, engines, refreshHealth, refreshScans, refreshProfiles, refreshEngines, toast,
-  }), [settings, updateSettings, health, healthLoading, scans, showingExamples, scansError, profiles, engines, refreshHealth, refreshScans, refreshProfiles, refreshEngines, toast])
+  }), [settings, updateSettings, health, healthLoading, scans, scansError, profiles, engines, refreshHealth, refreshScans, refreshProfiles, refreshEngines, toast])
 
   return <Context.Provider value={value}>
     {children}

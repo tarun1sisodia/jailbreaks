@@ -27,14 +27,24 @@ export function ScanTable({ scans }: { scans: Scan[] }) {
   return <div className="table-scroll"><table className="data-table scan-table">
     <caption className="sr-only">Assessment scans</caption>
     <thead><tr><th scope="col">Target</th><th scope="col">Profile</th><th scope="col">Status</th><th scope="col">Findings</th><th scope="col">Duration</th><th scope="col">Started</th><th scope="col"><span className="sr-only">Open</span></th></tr></thead>
-    <tbody>{scans.map((scan) => <tr key={scan.scan_id} className="scan-row" onClick={() => navigate(scanPath(scan))}>
-      <td><Link to={scanPath(scan)} onClick={(event) => event.stopPropagation()} className="target-link mono" title={scan.url}>{hostOf(scan.url)}</Link></td>
-      <td className="profile-cell">{profileLabel(scan.profile)}</td>
-      <td><StatusLabel status={scan.status} /></td>
-      <td><FindingCount scan={scan} /></td>
-      <td className="mono time-cell">{scanDuration(scan)}</td>
-      <td className="time-cell" title={new Date(scan.created_at * 1000).toLocaleString()}>{relativeTime(scan.created_at)}</td>
-      <td className="action-cell"><ChevronRight size={14} /></td>
-    </tr>)}</tbody>
+    <tbody>
+      {scans.length === 0 ? (
+        <tr>
+          <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted, #71717a)' }}>
+            No assessments yet. Enter a target above to begin scanning.
+          </td>
+        </tr>
+      ) : (
+        scans.map((scan) => <tr key={scan.scan_id} className="scan-row" onClick={() => navigate(scanPath(scan))}>
+          <td><Link to={scanPath(scan)} onClick={(event) => event.stopPropagation()} className="target-link mono" title={scan.url}>{hostOf(scan.url)}</Link></td>
+          <td className="profile-cell">{profileLabel(scan.profile)}</td>
+          <td><StatusLabel status={scan.status} /></td>
+          <td><FindingCount scan={scan} /></td>
+          <td className="mono time-cell">{scanDuration(scan)}</td>
+          <td className="time-cell" title={new Date(scan.created_at * 1000).toLocaleString()}>{relativeTime(scan.created_at)}</td>
+          <td className="action-cell"><ChevronRight size={14} /></td>
+        </tr>)
+      )}
+    </tbody>
   </table></div>
 }

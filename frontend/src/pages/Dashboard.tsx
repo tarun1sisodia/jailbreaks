@@ -73,7 +73,7 @@ export function Dashboard() {
     </section>
 
     <section className="dashboard-metrics major-section" aria-label="Assessment overview">
-      <div className="section-prelude"><span className="eyebrow">WORKSPACE OVERVIEW</span>{showingExamples && <span className="example-caption"><span className="example-square" />EXAMPLE DATA</span>}</div>
+      <div className="section-prelude"><span className="eyebrow">WORKSPACE OVERVIEW</span></div>
       <div className="metric-strip">
         <div className="metric"><span className="metric-label">TOTAL SCANS</span><strong className="metric-value">{String(metrics.total).padStart(2, '0')}</strong></div>
         <div className="metric"><span className="metric-label">CRITICAL &amp; HIGH</span><strong className={`metric-value ${metrics.severe ? 'metric-alert' : ''}`}>{String(metrics.severe).padStart(2, '0')}</strong></div>
@@ -83,10 +83,9 @@ export function Dashboard() {
 
     <section className="recent-section major-section" aria-labelledby="recent-title">
       <div className="section-heading"><div><h2 id="recent-title">Recent scans</h2></div><Link to="/scans" className="text-link">View all scans <ArrowRight size={14} /></Link></div>
-      {showingExamples && <div className="example-notice"><span className="example-square" /><span>Showing example scans. Your assessments will appear here.</span></div>}
       {scansError && <div className="inline-error">{scansError} <button onClick={() => void refreshScans()}>Retry</button></div>}
       <ScanTable scans={visibleScans.slice(0, 5)} />
-      <div className="table-footer"><span>{showingExamples ? 'EXAMPLE WORKSPACE' : `${visibleScans.length} ${visibleScans.length === 1 ? 'ASSESSMENT' : 'ASSESSMENTS'}`}</span><span>END OF RESULTS</span></div>
+      <div className="table-footer"><span>{`${visibleScans.length} ${visibleScans.length === 1 ? 'ASSESSMENT' : 'ASSESSMENTS'}`}</span><span>END OF RESULTS</span></div>
     </section>
   </div>
 }

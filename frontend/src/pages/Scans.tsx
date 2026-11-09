@@ -25,9 +25,8 @@ export function Scans() {
       <label className="select-wrap"><span className="sr-only">Filter by profile</span><select value={profile} onChange={(event) => setProfile(event.target.value)}><option value="all">Profile: All</option>{Array.from(new Set(visibleScans.map((scan) => scan.profile))).map((value) => <option key={value} value={value}>{value.toUpperCase()}</option>)}</select></label>
       <span className="filter-count">{matches.length} {matches.length === 1 ? 'scan' : 'scans'}</span>
     </div>
-    {showingExamples && <div className="example-notice history-notice"><span className="example-square" /><span>Example scans are shown until you start an assessment.</span></div>}
     {scansError && <div className="inline-error">{scansError} <button onClick={() => void refreshScans()}>Retry</button></div>}
-    {matches.length ? <ScanTable scans={matches} /> : <EmptyState title="No scans match your filters." description="Clear the filters to see your assessments." action={<Button onClick={clear}>Clear filters</Button>} />}
-    <div className="table-footer"><span>{showingExamples ? 'EXAMPLE WORKSPACE' : 'SCAN HISTORY'}</span><span>{matches.length} RESULTS</span></div>
+    {matches.length ? <ScanTable scans={matches} /> : <EmptyState title="No scans found." description="Start an assessment or clear filters to see your scans." action={<Button onClick={clear}>Clear filters</Button>} />}
+    <div className="table-footer"><span>ASSESSMENTS</span><span>{matches.length} RESULTS</span></div>
   </div>
 }
