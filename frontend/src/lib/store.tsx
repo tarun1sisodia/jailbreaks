@@ -2,7 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react'
 import type { Engines, Health, Profiles, Scan, Settings } from '../types'
 import { api, errorMessage } from './api'
-import { EXAMPLE_SCANS } from './examples'
 
 export const DEFAULT_SETTINGS: Settings = {
   defaultProfile: 'quick', rateLimit: 3, aimd: true, redact: true, theme: 'dark', reduceMotion: false,

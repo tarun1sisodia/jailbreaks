@@ -15,7 +15,7 @@ const QUICK_PROFILES: { id: ProfileId; label: string }[] = [
 
 export function Dashboard() {
   const navigate = useNavigate()
-  const { settings, visibleScans, showingExamples, scansError, refreshScans, toast } = useWorkspace()
+  const { settings, visibleScans, scansError, refreshScans, toast } = useWorkspace()
   const [url, setUrl] = useState('')
   const [profile, setProfile] = useState<ProfileId>(() => {
     try {

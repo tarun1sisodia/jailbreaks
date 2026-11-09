@@ -7,7 +7,7 @@ import { Button, EmptyState } from '../components/Primitives'
 import { useWorkspace } from '../lib/store'
 
 export function Scans() {
-  const { visibleScans, showingExamples, scansError, refreshScans } = useWorkspace()
+  const { visibleScans, scansError, refreshScans } = useWorkspace()
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('all')
   const [profile, setProfile] = useState('all')
