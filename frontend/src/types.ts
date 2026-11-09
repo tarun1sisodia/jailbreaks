@@ -49,6 +49,7 @@ export interface Scan {
 
 export interface ScanRequest {
   url: string
+  repo?: string
   profile: string
   engine?: EngineId
   rate_limit: number

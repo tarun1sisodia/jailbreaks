@@ -25,6 +25,7 @@ export function NewScan() {
   const { settings, profiles, engines, refreshScans, toast } = useWorkspace()
   const initialProfile = params.get('profile') as ProfileId | null
   const [url, setUrl] = useState(params.get('url') || '')
+  const [repo, setRepo] = useState(params.get('repo') || '')
   const [engine, setEngine] = useState<EngineId>('webprobe')
   const [profile, setProfile] = useState<ProfileId>(initialProfile && PROFILE_ORDER.includes(initialProfile) ? initialProfile : settings.defaultProfile)
   const [rateLimit, setRateLimit] = useState(settings.rateLimit)
@@ -40,12 +41,14 @@ export function NewScan() {
 
   async function submit(event: FormEvent) {
     event.preventDefault()
-    if (!validHttpUrl(url)) { setUrlError('Enter a valid URL beginning with http:// or https://.'); return }
+    if (engine === 'argus') {
+      if (!repo.trim()) { setUrlError('Enter a git URL or a directory path on the server.'); return }
+    } else if (!validHttpUrl(url)) { setUrlError('Enter a valid URL beginning with http:// or https://.'); return }
     if (webhook && !validHttpUrl(webhook)) { setSubmitError('Enter a valid webhook URL.'); return }
     setUrlError(''); setSubmitError(''); setLoading(true)
     try {
       const result = await api.start(settings.apiBase, {
-        url: url.trim(), profile, engine, rate_limit: rateLimit, aimd, redact,
+        url: engine === 'argus' ? '' : url.trim(), repo: repo.trim() || undefined, profile, engine, rate_limit: rateLimit, aimd, redact,
         cookie, secondary_cookie: secondaryCookie, admin_cookie: adminCookie,
         webhook_callback: webhook.trim() || null,
       })
@@ -63,7 +66,10 @@ export function NewScan() {
       <div className="setup-layout">
         <div className="setup-main">
           <section className="form-section"><div className="form-section-title"><span>01</span><h2>Target</h2></div>
-            <div className="form-field"><label htmlFor="target-url">Target URL</label><input id="target-url" className={`text-input ${urlError ? 'input-invalid' : ''}`} type="url" placeholder="https://app.example.com" value={url} onChange={(event) => { setUrl(event.target.value); setUrlError('') }} autoComplete="url" />{urlError ? <p className="input-error" role="alert">{urlError}</p> : <p className="field-hint">Include http:// or https://.</p>}</div>
+            {engine === 'argus'
+              ? <div className="form-field"><label htmlFor="target-repo">Code repo</label><input id="target-repo" className={`text-input ${urlError ? 'input-invalid' : ''}`} type="text" placeholder="https://github.com/org/repo or /path/on/server" value={repo} onChange={(event) => { setRepo(event.target.value); setUrlError('') }} autoComplete="off" />{urlError ? <p className="input-error" role="alert">{urlError}</p> : <p className="field-hint">A git URL is cloned shallow on the server; a path must already exist on the server. Only scan code you own or are authorized to test.</p>}</div>
+              : <div className="form-field"><label htmlFor="target-url">Target URL</label><input id="target-url" className={`text-input ${urlError ? 'input-invalid' : ''}`} type="url" placeholder="https://app.example.com" value={url} onChange={(event) => { setUrl(event.target.value); setUrlError('') }} autoComplete="url" />{urlError ? <p className="input-error" role="alert">{urlError}</p> : <p className="field-hint">Include http:// or https://.</p>}</div>}
+            {engine === 'all' && <div className="form-field"><label htmlFor="target-repo-all">Code repo <span className="optional-label">OPTIONAL</span></label><input id="target-repo-all" className="text-input" type="text" placeholder="https://github.com/org/repo or /path/on/server" value={repo} onChange={(event) => setRepo(event.target.value)} autoComplete="off" /><p className="field-hint">Add a repo to also run Argus code scanning in this run.</p></div>}
           </section>
           <section className="form-section"><div className="form-section-title"><span>02</span><h2>Scan engine</h2></div>
             <div className="form-field"><label htmlFor="scan-engine">Engine</label><select id="scan-engine" className="text-input" value={engine} onChange={(event) => setEngine(event.target.value as EngineId)}>
@@ -71,11 +77,11 @@ export function NewScan() {
               <option value="all">All installed engines — WebProbe, then KageSec, then OpenOSINT</option>
               <option value="kagesec" disabled={!engines?.kagesec?.available}>KageSec — DAST + CVE templates{engines && !engines.kagesec?.available ? ' · not installed on this host' : ''}</option>
               <option value="openosint" disabled={!engines?.openosint?.available}>OpenOSINT — passive recon intel{engines && !engines.openosint?.available ? ' · not installed on this host' : ''}</option>
-              <option value="argus" disabled>Argus — scans code, not URLs</option>
-            </select><p className="field-hint">{engine === 'openosint' ? 'Passive intel only: DNS, WHOIS, RDAP, exposure and dorks. No vulnerability findings.' : engine === 'kagesec' ? 'Active DAST scan. Only use on targets you own or are authorized to test.' : engine === 'all' ? 'Runs each installed engine in sequence and merges the findings.' : 'The built-in WebProbe checks.'}</p></div>
+              <option value="argus" disabled={!engines?.argus?.available}>Argus — SAST / SCA / secrets over code{engines && !engines.argus?.available ? ' · not installed on this host' : ''}</option>
+            </select><p className="field-hint">{engine === 'openosint' ? 'Passive intel only: DNS, WHOIS, RDAP, exposure and dorks. No vulnerability findings.' : engine === 'kagesec' ? 'Active DAST scan. Only use on targets you own or are authorized to test.' : engine === 'argus' ? 'Scans code, not a live URL: SAST, dependency CVEs, secrets. Give a repo above.' : engine === 'all' ? 'Runs each installed engine in sequence and merges the findings.' : 'The built-in WebProbe checks.'}</p></div>
           </section>
           <section className="form-section"><div className="form-section-title"><span>03</span><h2>Scan profile</h2></div>
-            <div className="form-field"><label htmlFor="scan-profile">Profile</label><select id="scan-profile" className="text-input" value={profile} onChange={(event) => setProfile(event.target.value as ProfileId)}>{PROFILE_ORDER.filter((id) => !profiles || id in profiles).map((id) => <option key={id} value={id}>{profileLabel(id)}{profiles?.[id] ? ` · ${profiles[id].count} checks` : ''}</option>)}</select><p className="field-hint">{engine === 'webprobe' || engine === 'all' ? (PROFILE_DESCRIPTIONS[profile] || 'Run the checks included in this profile.') : 'Profile applies to WebProbe only; KageSec and OpenOSINT ignore it.'}</p></div>
+            <div className="form-field"><label htmlFor="scan-profile">Profile</label><select id="scan-profile" className="text-input" value={profile} onChange={(event) => setProfile(event.target.value as ProfileId)}>{PROFILE_ORDER.filter((id) => !profiles || id in profiles).map((id) => <option key={id} value={id}>{profileLabel(id)}{profiles?.[id] ? ` · ${profiles[id].count} checks` : ''}</option>)}</select><p className="field-hint">{engine === 'webprobe' || engine === 'all' ? (PROFILE_DESCRIPTIONS[profile] || 'Run the checks included in this profile.') : 'Profile applies to WebProbe only; the other engines ignore it.'}</p></div>
           </section>
           <section className="form-section"><div className="form-section-title"><span>04</span><h2>Operational controls</h2></div>
             <div className="control-row"><div><label htmlFor="scan-rate">Rate limit</label><p>Maximum requests per second.</p></div><div className="range-control"><input id="scan-rate" type="range" min="0.5" max="20" step="0.5" value={rateLimit} onChange={(event) => setRateLimit(Number(event.target.value))} /><span className="mono">{rateLimit.toFixed(1)} RPS</span></div></div>

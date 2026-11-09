@@ -111,8 +111,49 @@ def test_engines_endpoint_reports_availability(monkeypatch):
 def test_scan_rejects_missing_engine_and_argus(monkeypatch):
     monkeypatch.setattr(server, "_run_scanner_job", lambda scan_id, data: None)
     client = TestClient(server.app)
-    assert client.post("/api/scan", json={"url": "https://example.com", "engine": "argus"}, headers=KEY).status_code == 400
     assert client.post("/api/scan", json={"url": "https://example.com", "engine": "kagesec"}, headers=KEY).status_code == 400
     response = client.post("/api/scan", json={"url": "https://example.com", "engine": "webprobe", "profile": "quick"}, headers=KEY)
     assert response.status_code == 202
     assert response.json()["engine"] == "webprobe"
+
+
+def test_scan_argus_needs_repo(monkeypatch, tmp_path):
+    monkeypatch.setattr(server, "_run_scanner_job", lambda scan_id, data: None)
+    monkeypatch.setattr(engines, "engine_available", lambda name: True)
+    client = TestClient(server.app)
+    # No repo at all.
+    assert client.post("/api/scan", json={"engine": "argus"}, headers=KEY).status_code == 400
+    # Repo path that does not exist.
+    assert client.post("/api/scan", json={"engine": "argus", "repo": "/no/such/dir"}, headers=KEY).status_code == 400
+    # A URL is not a repo for argus.
+    assert client.post("/api/scan", json={"engine": "argus", "url": "https://example.com"}, headers=KEY).status_code == 400
+    # An existing directory is accepted.
+    response = client.post("/api/scan", json={"engine": "argus", "repo": str(tmp_path)}, headers=KEY)
+    assert response.status_code == 202
+    assert response.json()["target"] == str(tmp_path)
+
+
+def test_run_argus_parses_sarif_from_fake_binary(monkeypatch, tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "app.py").write_text("import os\nos.system('ls')\n")
+    fake = tmp_path / "argus"
+    fake.write_text(
+        "#!/bin/sh\n"
+        "out=''\n"
+        "prev=''\n"
+        "for a in \"$@\"; do if [ \"$prev\" = '-o' ]; then out=\"$a\"; fi; prev=\"$a\"; done\n"
+        "cat > \"$out\" <<'SARIF'\n"
+        "{\"runs\": [{\"tool\": {\"driver\": {\"rules\": [{\"id\": \"B602\", \"name\": \"subprocess_popen_with_shell_equals_true\"}]}}, \"results\": [{\"ruleId\": \"B602\", \"level\": \"warning\", \"message\": {\"text\": \"subprocess call\"}, \"locations\": [{\"physicalLocation\": {\"artifactLocation\": {\"uri\": \"app.py\"}}}]}]}]}\n"
+        "SARIF\n"
+    )
+    fake.chmod(0o755)
+    monkeypatch.setenv("ARGUS_BIN", str(fake))
+    monkeypatch.setattr(server, "REPORTS_DIR", str(tmp_path / "reports"))
+    import io
+    findings, ok = server._run_argus("test-scan", str(repo), io.StringIO())
+    assert ok is True
+    assert len(findings) == 1
+    assert findings[0]["engine"] == "argus"
+    assert findings[0]["endpoint"] == "app.py"
+    assert findings[0]["severity"] == "medium"

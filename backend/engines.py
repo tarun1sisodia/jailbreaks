@@ -3,10 +3,10 @@
 WebProbe is the built-in engine. KageSec and OpenOSINT are external CLIs
 that are only used when their binary is actually installed on the host --
 `GET /api/engines` reports that, so the frontend never offers a missing
-engine. Argus is listed but is NOT a URL engine: every Argus project found
-(huntridge-labs/argus, argus-code-scanning, hasipfaruk/Argus) scans a code
-path, not a live URL, so /api/scan refuses it with a clear error instead
-of pretending a URL scan ran.
+engine. Argus is NOT a URL engine: it scans a code path (a repo path on
+the host, or a git URL cloned shallow first), so /api/scan takes `repo`
+for it instead of `url`. Its SARIF output goes through the same
+normalizer as KageSec's SARIF.
 
 Normalizers map each engine's native output to the WebProbe finding shape
 that Report.tsx already renders via normalizeFinding():
@@ -46,7 +46,7 @@ ENGINES = {
     },
     "argus": {
         "name": "Argus",
-        "description": "SAST/SCA/secrets scanner for code paths, not live URLs — not wired to /api/scan",
+        "description": "Code scanner (argus-code-scanning, MIT): SAST/SCA/secrets over a repo path or git URL — not a live-URL engine",
         "url_scan": False,
         "bin_env": "ARGUS_BIN",
         "default_bin": "argus",
@@ -83,6 +83,24 @@ def engine_available(name):
         return True
     binary = engine_binary(name)
     return bool(binary and shutil.which(binary))
+
+
+def argus_scan_env():
+    """Env for running `argus`: its own bin dir first on PATH.
+
+    argus-scan shells out to the real scanners (semgrep, bandit, gitleaks,
+    pip-audit), so they must be findable on PATH too. On box6 they live in
+    a separate venv (.venv-argus) next to the argus binary, not in the
+    server venv and not on the systemd PATH.
+    """
+    env = dict(os.environ)
+    binary = engine_binary("argus")
+    if binary and os.path.sep in binary:
+        bindir = os.path.dirname(binary)
+        env["PATH"] = bindir + os.pathsep + env.get("PATH", "")
+    # Never let a scan hang waiting for git credentials.
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    return env
 
 
 def kagesec_browser_available():

@@ -157,11 +157,12 @@ def _download_from_r2(r2_key: str, local_path: str) -> bool:
 
 
 class ScanRequest(BaseModel):
-    url: str = Field(..., description="Target URL (e.g. https://example.com)")
+    url: str = Field(default="", description="Target URL (e.g. https://example.com). Required for URL engines; empty for engine=argus")
+    repo: str = Field(default="", description="Code target for engine=argus: a git URL (cloned shallow) or a directory path on this host")
     profile: str = Field(default="full", description="Scan profile (quick, recon, auth, injection, authz, business, config, owasp, api, full)")
     engine: Literal["webprobe", "kagesec", "openosint", "argus", "all"] = Field(
         default="webprobe",
-        description="Scanning engine. kagesec/openosint run only when installed on this host; argus scans code, not URLs, and is refused; all runs the installed URL engines in sequence",
+        description="Scanning engine. kagesec/openosint run only when installed on this host; argus scans a repo, not a URL; all runs the installed URL engines in sequence, plus argus when repo is given",
     )
     rate_limit: float = Field(default=3.0, ge=0.5, le=20.0, description="Requests per second")
     aimd: bool = Field(default=True, description="Enable adaptive rate limiting")
@@ -243,6 +244,61 @@ def _run_openosint(scan_id: str, url: str, log_file):
     return engines.normalize_openosint(outputs), bool(outputs)
 
 
+def _resolve_argus_target(repo: str, scan_id: str, log_file):
+    """Return (path, cloned_dir_or_None) for an argus repo input.
+
+    A git URL is cloned shallow into a per-scan dir (deleted by the caller).
+    A local path must already exist and be a directory; system dirs are refused.
+    """
+    repo = (repo or "").strip()
+    if repo.startswith(("http://", "https://")):
+        clone_dir = os.path.join(REPORTS_DIR, f"{scan_id}-argus-repo")
+        proc = subprocess.run(
+            ["git", "clone", "--depth", "1", "--single-branch", repo, clone_dir],
+            capture_output=True, text=True, timeout=120,
+            env=engines.argus_scan_env(),
+        )
+        log_file.write(proc.stdout or "")
+        log_file.write(proc.stderr or "")
+        if proc.returncode != 0 or not os.path.isdir(clone_dir):
+            raise RuntimeError(f"Could not clone repo: {repo}")
+        return clone_dir, clone_dir
+    path = os.path.abspath(os.path.expanduser(repo))
+    if path in ("/", "/proc", "/sys", "/dev", "/etc"):
+        raise RuntimeError(f"Refused repo path: {repo}")
+    if not os.path.isdir(path):
+        raise RuntimeError(f"Repo path does not exist or is not a directory: {repo}")
+    return path, None
+
+
+def _run_argus(scan_id: str, repo: str, log_file):
+    """Run `argus scan all` on a repo; return (findings, ok)."""
+    binary = engines.engine_binary("argus")
+    workdir = os.path.join(REPORTS_DIR, f"{scan_id}-argus")
+    os.makedirs(workdir, exist_ok=True)
+    sarif_path = os.path.join(workdir, "argus.sarif")
+    target_path, clone_dir = _resolve_argus_target(repo, scan_id, log_file)
+    try:
+        cmd = [binary, "scan", "all", target_path, "--format", "sarif", "-o", sarif_path, "--fail-on", "never"]
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600, env=engines.argus_scan_env())
+        log_file.write(proc.stdout or "")
+        log_file.write(proc.stderr or "")
+        if proc.returncode == 0 and os.path.exists(sarif_path):
+            with open(sarif_path, "r", encoding="utf-8") as f:
+                findings = engines.normalize_sarif(json.load(f), engine="argus")
+            # Bandit B101 ("assert used") fires on every assert in the test
+            # files and drowns the report (5,998 of 7,802 on our own backend).
+            # Asserts in tests are not a finding; the raw SARIF is kept in
+            # the scan workdir for anyone who wants the full list.
+            kept = [f for f in findings if f.get("extra", {}).get("rule_id") != "bandit/B101"]
+            log_file.write(f"[argus] {len(findings) - len(kept)} bandit/B101 (assert-used) findings excluded as noise.\n")
+            return kept, True
+        return [], False
+    finally:
+        if clone_dir:
+            shutil.rmtree(clone_dir, ignore_errors=True)
+
+
 def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
     """Background task worker: dispatch to one engine, or all installed URL engines in sequence."""
     engine = req_data.get("engine", "webprobe")
@@ -251,6 +307,8 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
         return
     if engine == "all":
         names = [name for name in ("webprobe", "kagesec", "openosint") if engines.engine_available(name)]
+        if req_data.get("repo") and engines.engine_available("argus"):
+            names.append("argus")
     else:
         names = [engine]
 
@@ -262,6 +320,8 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
         entry["started_at"] = time.time()
 
     url = req_data["url"]
+    repo = req_data.get("repo", "")
+    target = url or repo
     profile = req_data.get("profile", "full")
     redact = req_data.get("redact", True)
     callback = req_data.get("webhook_callback")
@@ -306,16 +366,22 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
                         findings.extend(found)
                         ran.append(name)
                         ok = True
+                elif name == "argus":
+                    found, succeeded = _run_argus(scan_id, repo, log_file)
+                    if succeeded:
+                        findings.extend(found)
+                        ran.append(name)
+                        ok = True
         findings = engines.dedupe_findings(findings)
         duration = round(time.time() - SCANS[scan_id]["started_at"], 2)
-        report = engines.webprobe_report(url, engine, ran, findings, duration)
+        report = engines.webprobe_report(target, engine, ran, findings, duration)
         report["metadata"]["profile"] = profile
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2)
         with open(md_path, "w", encoding="utf-8") as f:
-            f.write(engines.markdown_summary(url, engine, findings))
+            f.write(engines.markdown_summary(target, engine, findings))
         with open(sarif_path, "w", encoding="utf-8") as f:
-            json.dump(engines.sarif_from_findings(findings, url), f, indent=2)
+            json.dump(engines.sarif_from_findings(findings, target), f, indent=2)
         summary = {
             severity: sum(1 for finding in findings if finding.get("severity", "").lower() == severity)
             for severity in ("critical", "high", "medium", "low", "info")
@@ -350,7 +416,7 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
     if callback:
         _send_webhook_notification(callback, {
             "scan_id": scan_id,
-            "target": url,
+            "target": target,
             "status": entry["status"],
             "findings_count": entry.get("findings_count", 0),
             "severity_summary": entry.get("severity_summary", {}),
@@ -512,30 +578,39 @@ def list_profiles() -> Dict[str, Any]:
 
 @api.post("/scan", status_code=status.HTTP_202_ACCEPTED, tags=["Scans"])
 def start_scan(req: ScanRequest, bg_tasks: BackgroundTasks, _key: None = Depends(require_api_key)) -> Dict[str, Any]:
-    """Trigger a web security assessment scan against a target URL."""
-    validate_public_url(req.url)
+    """Trigger a scan: a URL for the URL engines, a repo for engine=argus."""
     if req.webhook_callback:
         validate_public_url(req.webhook_callback)
 
     if req.engine == "argus":
-        raise HTTPException(
-            status_code=400,
-            detail="Argus scans a code path, not a live URL, so it cannot run from /api/scan. Pass a repo path to Argus directly.",
-        )
-    if req.engine != "webprobe" and req.engine != "all" and not engines.engine_available(req.engine):
-        binary = engines.engine_binary(req.engine)
-        raise HTTPException(
-            status_code=400,
-            detail=f"Engine '{req.engine}' is not installed on this host (binary '{binary}' not found).",
-        )
+        if not req.repo.strip():
+            raise HTTPException(status_code=400, detail="Engine 'argus' scans code: pass 'repo' as a git URL or a directory path on this host.")
+        if req.repo.strip().startswith(("http://", "https://")):
+            validate_public_url(req.repo.strip())
+        elif not os.path.isdir(os.path.abspath(os.path.expanduser(req.repo.strip()))):
+            raise HTTPException(status_code=400, detail=f"Repo path does not exist or is not a directory: {req.repo.strip()}")
+        if not engines.engine_available("argus"):
+            binary = engines.engine_binary("argus")
+            raise HTTPException(status_code=400, detail=f"Engine 'argus' is not installed on this host (binary '{binary}' not found).")
+    else:
+        if not req.url.strip():
+            raise HTTPException(status_code=400, detail="Pass 'url' for this engine (engine=argus takes 'repo' instead).")
+        validate_public_url(req.url)
+        if req.engine != "webprobe" and req.engine != "all" and not engines.engine_available(req.engine):
+            binary = engines.engine_binary(req.engine)
+            raise HTTPException(
+                status_code=400,
+                detail=f"Engine '{req.engine}' is not installed on this host (binary '{binary}' not found).",
+            )
     if req.engine in ("webprobe", "all") and req.profile not in PROFILES:
         raise HTTPException(status_code=400, detail="Unknown scan profile")
 
+    target = req.url.strip() or req.repo.strip()
     scan_id = str(uuid.uuid4())
     with _SCAN_LOCK:
         SCANS[scan_id] = {
             "scan_id": scan_id,
-            "url": req.url,
+            "url": target,
             "profile": req.profile,
             "engine": req.engine,
             "status": "queued",
@@ -548,7 +623,7 @@ def start_scan(req: ScanRequest, bg_tasks: BackgroundTasks, _key: None = Depends
 
     return {
         "scan_id": scan_id,
-        "target": req.url,
+        "target": target,
         "profile": req.profile,
         "engine": req.engine,
         "status": "queued",
