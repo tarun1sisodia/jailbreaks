@@ -15,6 +15,7 @@ export type Theme = 'system' | 'dark' | 'light'
 
 export interface Settings {
   apiBase: string
+  apiKey: string
   defaultProfile: ProfileId
   rateLimit: number
   aimd: boolean

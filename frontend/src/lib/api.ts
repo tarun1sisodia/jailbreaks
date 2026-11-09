@@ -9,6 +9,8 @@ export class ApiError extends Error {
   }
 }
 
+let apiKey = ''
+
 function endpoint(base: string, path: string): string {
   return `${base.replace(/\/+$/, '')}${path}`
 }
@@ -16,7 +18,7 @@ function endpoint(base: string, path: string): string {
 async function request(base: string, path: string, init?: RequestInit): Promise<Response> {
   let response: Response
   try {
-    response = await fetch(endpoint(base, path), { ...init, headers: { Accept: 'application/json', ...init?.headers }, cache: 'no-store' })
+    response = await fetch(endpoint(base, path), { ...init, headers: { Accept: 'application/json', ...(apiKey ? { 'X-API-Key': apiKey } : {}), ...init?.headers }, cache: 'no-store' })
   } catch {
     throw new ApiError('Backend unreachable. Check the connection and try again.')
   }
@@ -32,6 +34,9 @@ async function request(base: string, path: string, init?: RequestInit): Promise<
 }
 
 export const api = {
+  setApiKey(key: string): void {
+    apiKey = key
+  },
   async health(base: string): Promise<Health> {
     return (await request(base, '/health')).json()
   },

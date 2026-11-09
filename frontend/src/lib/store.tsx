@@ -6,7 +6,7 @@ import { EXAMPLE_SCANS } from './examples'
 import { validApiBase } from './format'
 
 export const DEFAULT_SETTINGS: Settings = {
-  apiBase: 'https://jailbreaks-46uf.onrender.com/api', defaultProfile: 'quick', rateLimit: 3, aimd: true, redact: true, theme: 'dark', reduceMotion: false,
+  apiBase: 'https://jailbreaks-46uf.onrender.com/api', apiKey: '', defaultProfile: 'quick', rateLimit: 3, aimd: true, redact: true, theme: 'dark', reduceMotion: false,
 }
 
 function readSettings(): Settings {
@@ -14,6 +14,7 @@ function readSettings(): Settings {
     const stored = JSON.parse(localStorage.getItem('wp.settings') || '{}') as Partial<Settings>
     return {
       apiBase: typeof stored.apiBase === 'string' && validApiBase(stored.apiBase) ? stored.apiBase : DEFAULT_SETTINGS.apiBase,
+      apiKey: typeof stored.apiKey === 'string' ? stored.apiKey : '',
       defaultProfile: stored.defaultProfile && ['quick', 'owasp', 'full', 'api'].includes(stored.defaultProfile) ? stored.defaultProfile : DEFAULT_SETTINGS.defaultProfile,
       rateLimit: typeof stored.rateLimit === 'number' && Number.isFinite(stored.rateLimit) ? Math.max(0.5, Math.min(20, stored.rateLimit)) : DEFAULT_SETTINGS.rateLimit,
       aimd: typeof stored.aimd === 'boolean' ? stored.aimd : DEFAULT_SETTINGS.aimd,
@@ -62,6 +63,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const updateSettings = useCallback((changes: Partial<Settings>) => {
     setSettings((current) => ({ ...current, ...changes }))
   }, [])
+
+  useEffect(() => {
+    api.setApiKey(settings.apiKey)
+  }, [settings.apiKey])
 
   useEffect(() => {
     try { localStorage.setItem('wp.settings', JSON.stringify(settings)) } catch { /* Storage may be unavailable. */ }
