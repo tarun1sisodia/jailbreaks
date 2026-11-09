@@ -47,12 +47,19 @@ ALLOW_UNAUTHENTICATED_LOCAL = os.environ.get("WEBPROBE_ALLOW_UNAUTHENTICATED_LOC
 if not API_KEY and ALLOW_UNAUTHENTICATED_LOCAL:
     print("[!] WARNING: WebProbe API running without an API key (local dev only)")
 
+# CORS is enforced by the browser from these backend headers: only the
+# origins in WEBPROBE_ALLOWED_ORIGINS may call the API cross-origin.
+# Methods and headers are the exact ones the dashboard uses — no
+# wildcards, no cookies (auth is the X-API-Key header, not a cookie).
+# Set on Render as: WEBPROBE_ALLOWED_ORIGINS=https://jailbreaks.coccoder999.workers.dev,http://localhost:5173
+print(f"[*] CORS allowed origins: {ALLOWED_ORIGINS or '(none — same-origin only)'}")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "X-API-Key", "Accept"],
 )
 
 

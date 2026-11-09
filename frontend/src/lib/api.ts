@@ -18,7 +18,10 @@ function endpoint(base: string, path: string): string {
 async function request(base: string, path: string, init?: RequestInit): Promise<Response> {
   let response: Response
   try {
-    response = await fetch(endpoint(base, path), { ...init, headers: { Accept: 'application/json', ...(apiKey ? { 'X-API-Key': apiKey } : {}), ...init?.headers }, cache: 'no-store' })
+    // mode: 'cors' is explicit: the dashboard calls the API cross-origin
+    // (Workers frontend -> Render backend), so the browser enforces the
+    // backend's CORS allow-list. Auth is the X-API-Key header, not cookies.
+    response = await fetch(endpoint(base, path), { mode: 'cors', ...init, headers: { Accept: 'application/json', ...(apiKey ? { 'X-API-Key': apiKey } : {}), ...init?.headers }, cache: 'no-store' })
   } catch {
     throw new ApiError('Backend unreachable. Check the connection and try again.')
   }
