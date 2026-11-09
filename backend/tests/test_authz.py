@@ -71,15 +71,39 @@ def test_mass_assign_schema_negative(mock_server, ctx_factory):
 
 def test_rbac_matrix_positive(mock_server, ctx_factory):
     base_url, routes, _, _ = mock_server
-    # Unauthenticated user and customer both see identical 200 response on dashboard
-    body = "<html><body>Account Dashboard: Secret Information Account 999</body></html>"
-    routes["GET /dashboard"] = (200, body, {"Content-Type": "text/html"})
+
+    def _dash(handler):
+        cookie = handler.headers.get("Cookie", "")
+        if "sess=cust1" in cookie:
+            body = (b"<html><body>Welcome Alice. Account dashboard. "
+                    b"user_email: alice@example.com</body></html>")
+        else:
+            body = b"<html><body>Loading public shell</body></html>"
+        handler.send_response(200)
+        handler.send_header("Content-Type", "text/html")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.end_headers()
+        handler.wfile.write(body)
+
+    routes["GET /dashboard"] = _dash
 
     ctx = ctx_factory({"cookie": "sess=cust1", "secondary_cookie": "sess=cust2"})
     ctx.discovered = [f"{base_url}/dashboard"]
     findings = check_rbac_matrix(ctx)
     assert len(findings) >= 1
     assert any(f.category == "authz" for f in findings)
+
+
+def test_rbac_matrix_public_page_not_flagged(mock_server, ctx_factory):
+    """A public content page must not be reported as a broken authz check."""
+    base_url, routes, _, _ = mock_server
+    body = "<html><body>Book your tour. Public pricing and itinerary.</body></html>"
+    routes["GET /book.html"] = (200, body, {"Content-Type": "text/html"})
+
+    ctx = ctx_factory({"cookie": "sess=cust1", "secondary_cookie": "sess=cust2"})
+    ctx.discovered = [f"{base_url}/book.html"]
+    findings = check_rbac_matrix(ctx)
+    assert findings == []
 
 
 def test_rbac_matrix_negative(mock_server, ctx_factory):

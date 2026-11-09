@@ -40,13 +40,14 @@ const BOX6_ENGINES = {
 }
 const URL_ENGINES = new Set(['webprobe', 'kagesec', 'openosint', 'all'])
 
+// URLs are safe defaults. Credentials are intentionally NOT defaulted:
+// RENDER_API_KEY, BOX6_API_KEY and WAKE_SECRET must be supplied as
+// Workers Secrets (`wrangler secret put <NAME>`) or via the Cloudflare
+// dashboard. A missing credential fails closed with HTTP 503.
 const DEFAULTS = {
   RENDER_API_URL: 'https://jailbreaks-46uf.onrender.com/api',
-  RENDER_API_KEY: '422a800c9d29bc52bed66bc7a2f075e1be499175db7bdf9c23ead1a82c44f5c7',
   BOX6_API_URL: 'https://8000-agq3oekm7yaprv7dohu23wsj2y.instabox.tech/api',
-  BOX6_API_KEY: '2uorf0L7GmD3DHHN6_yZC8pvpWvZQAGF3RYTR1YSpQo',
   WAKE_URL: 'https://jailbreaks-46uf.onrender.com/api/wake/box6',
-  WAKE_SECRET: '30c6d814551f5abf48307dc87f48abd4',
   ALLOWED_ORIGINS: 'https://jailbreaks.coccoder999.workers.dev,http://localhost:5173',
 }
 
@@ -54,14 +55,23 @@ function resolveEnv(raw) {
   const e = raw || {}
   return {
     RENDER_API_URL: e.RENDER_API_URL || DEFAULTS.RENDER_API_URL,
-    RENDER_API_KEY: e.RENDER_API_KEY || DEFAULTS.RENDER_API_KEY,
+    RENDER_API_KEY: e.RENDER_API_KEY || '',
     BOX6_API_URL: e.BOX6_API_URL || DEFAULTS.BOX6_API_URL,
-    BOX6_API_KEY: e.BOX6_API_KEY || DEFAULTS.BOX6_API_KEY,
+    BOX6_API_KEY: e.BOX6_API_KEY || '',
     WAKE_URL: e.WAKE_URL || DEFAULTS.WAKE_URL,
-    WAKE_SECRET: e.WAKE_SECRET || DEFAULTS.WAKE_SECRET,
+    WAKE_SECRET: e.WAKE_SECRET || '',
     ALLOWED_ORIGINS: e.ALLOWED_ORIGINS || DEFAULTS.ALLOWED_ORIGINS,
     BOX6_PORT_TOKEN: e.BOX6_PORT_TOKEN || '',
     ASSETS: e.ASSETS,
+  }
+}
+
+function requireSecrets(env, names) {
+  const missing = names.filter((name) => !env[name])
+  if (!missing.length) return null
+  return {
+    detail: `Worker is missing required secret(s): ${missing.join(', ')}. ` +
+            'Set them with `wrangler secret put <NAME>`; do not commit them.',
   }
 }
 
@@ -166,6 +176,9 @@ async function forwardScan(env, body) {
     if (!renderUrl) {
       return { status: 503, body: { detail: 'RENDER_API_URL is not configured' }, engineUsed: 'webprobe' }
     }
+    if (!renderKey) {
+      return { status: 503, body: { detail: 'RENDER_API_KEY is not configured' }, engineUsed: 'webprobe' }
+    }
     const res = await upstreamJson(`${renderUrl}/scan`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-API-Key': renderKey },
@@ -175,6 +188,9 @@ async function forwardScan(env, body) {
   }
 
   // Other engines need box6.
+  if (!env.BOX6_API_KEY) {
+    return { status: 503, body: { detail: 'BOX6_API_KEY is not configured' }, engineUsed: engine }
+  }
   if (await box6Healthy(env)) {
     const res = await upstreamJson(box6Url(env, '/scan'), {
       method: 'POST',
@@ -230,6 +246,9 @@ async function forwardScan(env, body) {
 // fetched until it is woken by a new scan).
 async function forwardById(env, request, path, method, body) {
   const renderUrl = (env.RENDER_API_URL || '').replace(/\/+$/, '')
+  if (!env.RENDER_API_KEY) {
+    return { status: 503, body: { detail: 'RENDER_API_KEY is not configured' }, headers: new Headers() }
+  }
   const render = await upstreamJson(`${renderUrl}${path}`, {
     method,
     headers: { 'X-API-Key': env.RENDER_API_KEY || '', ...(body ? { 'Content-Type': 'application/json' } : {}) },
@@ -314,6 +333,8 @@ export default {
         if (!renderUrl) {
           return jsonResponse(env, request, { detail: 'RENDER_API_URL is not configured in Workers variables' }, 503)
         }
+        const missing = requireSecrets(env, ['RENDER_API_KEY'])
+        if (missing) return jsonResponse(env, request, missing, 503)
         const res = await upstreamJson(`${renderUrl}/scans?limit=1000`, { headers: { 'X-API-Key': renderKey, Accept: 'application/json' } }, 15000)
         return jsonResponse(env, request, res.body, res.status)
       }
@@ -332,12 +353,19 @@ export default {
         if (engine !== 'argus' && !body.url) {
           return jsonResponse(env, request, { detail: 'Pass a target URL for this engine.' }, 400)
         }
+        const required = engine === 'webprobe'
+          ? ['RENDER_API_KEY']
+          : ['BOX6_API_KEY', 'WAKE_SECRET']
+        const missing = requireSecrets(env, required)
+        if (missing) return jsonResponse(env, request, missing, 503)
         const out = await forwardScan(env, body)
         return jsonResponse(env, request, out.body, out.status)
       }
 
       const scanMatch = url.pathname.match(/^\/api\/scan\/([^/]+)(\/abort|\/report)?$/)
       if (scanMatch) {
+        const missing = requireSecrets(env, ['RENDER_API_KEY'])
+        if (missing) return jsonResponse(env, request, missing, 503)
         const id = scanMatch[1]
         const suffix = scanMatch[2] || ''
         const path = `/scan/${encodeURIComponent(id)}${suffix}${url.search || ''}`

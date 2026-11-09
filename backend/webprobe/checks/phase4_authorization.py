@@ -27,6 +27,23 @@ ADMIN_PATHS_P4 = [
 COUPON_FIELD_RE = re.compile(r"(?i)(coupon|promo|voucher|discount)")
 ID_PARAM_RE = re.compile(r"(?i)^(id|user_id|account_id|booking_id|order_id|invoice_id)$")
 
+# Endpoints that normally require a session. A public marketing page such
+# as /book.html must not be reported just because it returns 200 to both
+# anonymous and signed-in visitors.
+SENSITIVE_ENDPOINT_HINTS = (
+    "/admin", "/account", "/dashboard", "/profile", "/settings",
+    "/user", "/users", "/orders", "/order", "/bookings", "/booking",
+    "/my-", "/internal", "/private", "/staff", "/ops", "/manage",
+    "/api/", "/graphql",
+)
+LOGIN_PAGE_RE = re.compile(
+    r"(?i)(login|sign in|signin|unauthorized|forbidden|access denied|denied)"
+)
+IDENTITY_CONTENT_RE = re.compile(
+    r"(?i)(welcome|logout|sign out|my account|dashboard|user_id|user_email|"
+    r"email|profile|orders|bookings|invoice|admin)"
+)
+
 
 def _id_resource_type(param: str, url: str) -> Optional[str]:
     combined = f"{param} {url}".lower()
@@ -517,6 +534,32 @@ def _bodies_match_as_same_user(a: str, b: str) -> bool:
     return sa == sb
 
 
+def _is_sensitive_endpoint(url: str) -> bool:
+    path = urllib.parse.urlsplit(url).path.lower()
+    return any(hint in path for hint in SENSITIVE_ENDPOINT_HINTS)
+
+
+def _bodies_are_public(anon_body: str, customer_body: str) -> bool:
+    """True when anonymous and signed-in visitors see the same public page.
+
+    Public marketing/content pages often differ by a CSRF token, timestamp
+    or cache-buster, so compare a large prefix and the overall size rather
+    than requiring byte-for-byte equality.
+    """
+    anon = (anon_body or "").strip()
+    customer = (customer_body or "").strip()
+    if not anon or not customer:
+        return False
+    if anon[:1000] == customer[:1000]:
+        return True
+    if len(anon) > 500 and len(customer) > 500:
+        same_prefix = anon[:500] == customer[:500]
+        size_delta = abs(len(anon) - len(customer))
+        if same_prefix and size_delta <= max(len(anon), len(customer)) * 0.10:
+            return True
+    return False
+
+
 def check_rbac_matrix(ctx: Ctx) -> List[Finding]:
     """Test every discovered endpoint across every provided role and flag gaps."""
     roles = {}
@@ -549,13 +592,27 @@ def check_rbac_matrix(ctx: Ctx) -> List[Finding]:
             row[label] = r.status
             bodies[label] = r.text[:1000]
 
-        # Anon 200 + customer 200 → endpoint has no authz
+        # Anon 200 + customer 200 on a sensitive endpoint. Do not flag
+        # public content pages (identical bodies) or soft login pages.
         if row.get("anon") == 200 and row.get("customer") == 200:
+            if not _is_sensitive_endpoint(url):
+                continue
+            anon_body = bodies.get("anon", "")
+            customer_body = bodies.get("customer", "")
+            if _bodies_are_public(anon_body, customer_body):
+                continue
+            if (LOGIN_PAGE_RE.search(anon_body[:2000])
+                    and not LOGIN_PAGE_RE.search(customer_body[:2000])):
+                continue
+            if not IDENTITY_CONTENT_RE.search(customer_body[:5000]):
+                continue
             out.append(Finding(
                 "authz", "high",
-                "Endpoint reachable unauthenticated AND authenticated",
+                "Sensitive endpoint returns content to unauthenticated users",
                 url,
-                evidence=f"anon HTTP 200; customer HTTP 200",
+                evidence=f"anon HTTP 200 ({len(anon_body)}B); customer HTTP 200 "
+                         f"({len(customer_body)}B); bodies differ and customer "
+                         f"view contains identity markers",
                 remediation="Require authentication on non-public endpoints; "
                             "enforce ownership checks on every resource.",
                 phase=4,

@@ -51,6 +51,191 @@ STATIC_EXTS = (
 )
 
 
+def _version_tuple(value: str) -> Tuple[int, int, int, int]:
+    parts = [int(p) for p in re.findall(r"\d+", value or "")[:4]]
+    while len(parts) < 4:
+        parts.append(0)
+    return tuple(parts)  # type: ignore[return-value]
+
+
+def _in_range(version: str, low: Tuple[int, int, int, int],
+              high: Tuple[int, int, int, int]) -> bool:
+    return low <= _version_tuple(version) <= high
+
+
+# Passive CVE fingerprints. Each entry is deliberately version-gated: the
+# scanner reports a CVE only when it can read a vulnerable version from a
+# response header or the page body. No active exploitation happens here.
+# Ranges are from NVD / vendor advisories (verified 2026-11-09).
+CVE_FINGERPRINTS = [
+    {
+        "product": "Apache HTTP Server",
+        "source": "headers",
+        "regex": r"Apache/(\d+(?:\.\d+){1,3})",
+        "rules": [
+            {
+                "cve": "CVE-2021-41773",
+                "severity": "critical",
+                "title": "Apache HTTP Server 2.4.49 path traversal / RCE",
+                "ranges": [((2, 4, 49, 0), (2, 4, 49, 999))],
+                "remediation": "Upgrade to Apache HTTP Server 2.4.51 or later. "
+                               "2.4.50 is also affected by the incomplete-fix "
+                               "follow-up CVE-2021-42013.",
+            },
+            {
+                "cve": "CVE-2021-42013",
+                "severity": "critical",
+                "title": "Apache HTTP Server 2.4.50 path traversal / RCE",
+                "ranges": [((2, 4, 50, 0), (2, 4, 50, 999))],
+                "remediation": "Upgrade to Apache HTTP Server 2.4.51 or later.",
+            },
+        ],
+    },
+    {
+        "product": "PHP",
+        "source": "headers",
+        "regex": r"PHP/(\d+\.\d+\.\d+)",
+        "rules": [
+            {
+                "cve": "CVE-2024-4577",
+                "severity": "high",
+                "title": "PHP-CGI argument injection on Windows (CVE-2024-4577)",
+                "ranges": [
+                    ((8, 1, 0, 0), (8, 1, 28, 999)),
+                    ((8, 2, 0, 0), (8, 2, 19, 999)),
+                    ((8, 3, 0, 0), (8, 3, 7, 999)),
+                ],
+                "note": "Only exploitable when PHP-CGI is used on Windows; "
+                        "confirm the deployment mode before treating this as confirmed.",
+                "remediation": "Upgrade to PHP 8.1.29 / 8.2.20 / 8.3.8 or later; "
+                               "avoid PHP-CGI on Windows.",
+            },
+        ],
+    },
+    {
+        "product": "Jenkins",
+        "source": "headers",
+        "regex": r"(?i)X-Jenkins:\s*(\d+\.\d+(?:\.\d+)?)",
+        "rules": [
+            {
+                "cve": "CVE-2024-23897",
+                "severity": "critical",
+                "title": "Jenkins CLI arbitrary file read (CVE-2024-23897)",
+                "ranges": [
+                    ((2, 0, 0, 0), (2, 426, 2, 999)),
+                    ((2, 427, 0, 0), (2, 441, 999, 999)),
+                ],
+                "remediation": "Upgrade to Jenkins 2.442 or LTS 2.426.3 or later; "
+                               "disable the CLI if it is not needed.",
+            },
+        ],
+    },
+    {
+        "product": "jQuery",
+        "source": "body",
+        "regex": r"(?i)jquery[-/.]?(?:v)?(\d+\.\d+\.\d+)",
+        "rules": [
+            {
+                "cve": "CVE-2020-11022 / CVE-2020-11023",
+                "severity": "medium",
+                "title": "jQuery XSS via HTML manipulation (CVE-2020-11022/11023)",
+                "ranges": [((1, 2, 0, 0), (3, 4, 999, 999))],
+                "remediation": "Upgrade jQuery to 3.5.0 or later and review "
+                               "untrusted HTML passed to .html()/.append().",
+            },
+        ],
+    },
+    {
+        "product": "Bootstrap",
+        "source": "body",
+        "regex": r"(?i)bootstrap[-/.]?(?:v)?(\d+\.\d+\.\d+)",
+        "rules": [
+            {
+                "cve": "CVE-2019-8331",
+                "severity": "medium",
+                "title": "Bootstrap tooltip/popover XSS (CVE-2019-8331)",
+                "ranges": [
+                    ((3, 0, 0, 0), (3, 4, 0, 999)),
+                    ((4, 0, 0, 0), (4, 3, 0, 999)),
+                ],
+                "remediation": "Upgrade to Bootstrap 3.4.1 / 4.3.1 or later.",
+            },
+        ],
+    },
+    {
+        "product": "GitLab",
+        "source": "body",
+        "regex": r"(?i)GitLab(?:\s+(?:Community|Enterprise)\s+Edition)?\s+(\d+\.\d+\.\d+)",
+        "rules": [
+            {
+                "cve": "CVE-2023-7028",
+                "severity": "critical",
+                "title": "GitLab account takeover via password reset (CVE-2023-7028)",
+                "ranges": [
+                    ((16, 1, 0, 0), (16, 1, 5, 999)),
+                    ((16, 2, 0, 0), (16, 2, 8, 999)),
+                    ((16, 3, 0, 0), (16, 3, 6, 999)),
+                    ((16, 4, 0, 0), (16, 4, 4, 999)),
+                    ((16, 5, 0, 0), (16, 5, 5, 999)),
+                    ((16, 6, 0, 0), (16, 6, 3, 999)),
+                    ((16, 7, 0, 0), (16, 7, 1, 999)),
+                ],
+                "remediation": "Upgrade to GitLab 16.1.6 / 16.2.9 / 16.3.7 / "
+                               "16.4.5 / 16.5.6 / 16.6.4 / 16.7.2 or later.",
+            },
+        ],
+    },
+    {
+        "product": "Confluence",
+        "source": "body",
+        "regex": r"(?i)(?:Confluence|ajs-version-number[\"']?\s+content=[\"'])\s*(\d+\.\d+\.\d+)",
+        "rules": [
+            {
+                "cve": "CVE-2023-22527",
+                "severity": "critical",
+                "title": "Confluence template injection / RCE (CVE-2023-22527)",
+                "ranges": [((8, 0, 0, 0), (8, 5, 3, 999))],
+                "remediation": "Upgrade Confluence Data Center/Server to 8.5.4 or later.",
+            },
+        ],
+    },
+    {
+        "product": "TeamCity",
+        "source": "body",
+        "regex": r"(?i)TeamCity[^0-9]{0,60}(\d{4}\.\d+\.\d+)",
+        "rules": [
+            {
+                "cve": "CVE-2024-27198",
+                "severity": "critical",
+                "title": "TeamCity authentication bypass (CVE-2024-27198)",
+                "ranges": [((0, 0, 0, 0), (2023, 11, 3, 999))],
+                "remediation": "Upgrade to TeamCity 2023.11.4 or later.",
+            },
+        ],
+    },
+    {
+        "product": "GeoServer",
+        "source": "body",
+        "regex": r"(?i)GeoServer[^0-9]{0,60}(\d+\.\d+\.\d+)",
+        "rules": [
+            {
+                "cve": "CVE-2024-36401",
+                "severity": "critical",
+                "title": "GeoServer OGC property-name RCE (CVE-2024-36401)",
+                "ranges": [
+                    ((2, 22, 0, 0), (2, 22, 5, 999)),
+                    ((2, 23, 0, 0), (2, 23, 5, 999)),
+                    ((2, 24, 0, 0), (2, 24, 3, 999)),
+                    ((2, 25, 0, 0), (2, 25, 1, 999)),
+                ],
+                "remediation": "Upgrade to GeoServer 2.22.6 / 2.23.6 / 2.24.4 / "
+                               "2.25.2 or later, or remove gt-complex-x.y.jar.",
+            },
+        ],
+    },
+]
+
+
 def check_headers(ctx: Ctx) -> List[Finding]:
     out: List[Finding] = []
     r = ctx.http.fetch(ctx.base_url, follow=True)
@@ -146,15 +331,50 @@ def check_files(ctx: Ctx) -> List[Finding]:
 
 
 def check_cve(ctx: Ctx) -> List[Finding]:
+    """Passive CVE fingerprinting from headers and page content.
+
+    This is detection-only: it never sends an exploit payload. A finding is
+    emitted only when a product version is readable and falls inside a
+    published affected range.
+    """
     out: List[Finding] = []
     r = ctx.http.fetch(ctx.base_url, follow=True)
     if not r:
         return out
+
+    header_blob = "\n".join(f"{k}: {v}" for k, v in r.headers.items())
+    body = r.text[:200000]
     x_powered_by = r.header("X-Powered-By") or ""
-    if "Next.js" in x_powered_by or "/_next/" in r.text:
+    if "Next.js" in x_powered_by or "/_next/" in body:
         ctx.tech["framework"] = "Next.js"
     if "Express" in x_powered_by:
         ctx.tech["server"] = "Express"
+
+    seen = set()
+    for fingerprint in CVE_FINGERPRINTS:
+        haystack = header_blob if fingerprint["source"] == "headers" else body
+        match = re.search(fingerprint["regex"], haystack)
+        if not match:
+            continue
+        version = match.group(1)
+        for rule in fingerprint["rules"]:
+            if not any(_in_range(version, low, high)
+                       for low, high in rule["ranges"]):
+                continue
+            key = (fingerprint["product"], rule["cve"])
+            if key in seen:
+                continue
+            seen.add(key)
+            evidence = (f"{fingerprint['product']} {version} detected via "
+                        f"{fingerprint['source']}; affected by {rule['cve']}")
+            if rule.get("note"):
+                evidence += f". {rule['note']}"
+            out.append(Finding(
+                "cve", rule["severity"], rule["title"], r.url,
+                evidence=evidence,
+                remediation=rule["remediation"],
+                phase=6,
+            ))
     return out
 
 
