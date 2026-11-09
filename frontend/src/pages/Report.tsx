@@ -17,7 +17,7 @@ function localFlags(id: string): string[] {
 
 export function ReportPage() {
   const { id = '' } = useParams()
-  const { settings, toast } = useWorkspace()
+  const { toast } = useWorkspace()
   const [scan, setScan] = useState<Scan | null>(null)
   const [report, setReport] = useState<ReportData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -38,7 +38,7 @@ export function ReportPage() {
         if (!data) throw new Error('No report is available for this example scan.')
         setScan(sample); setReport(data)
       } else {
-        const [scanResult, reportResult] = await Promise.allSettled([api.scan(settings.apiBase, id), api.report(settings.apiBase, id)])
+        const [scanResult, reportResult] = await Promise.allSettled([api.scan(id), api.report(id)])
         if (reportResult.status === 'rejected') throw reportResult.reason
         const reportData = reportResult.value
         if (scanResult.status === 'fulfilled') setScan(scanResult.value)
@@ -50,7 +50,7 @@ export function ReportPage() {
         setReport(reportData)
       }
     } catch (caught) { setError(errorMessage(caught)) } finally { setLoading(false) }
-  }, [id, sample, settings.apiBase])
+  }, [id, sample])
   useEffect(() => { setFlags(localFlags(id)); void load() }, [id, load])
 
   const findings = useMemo(() => (report?.findings || []).map(normalizeFinding), [report])
@@ -82,7 +82,7 @@ export function ReportPage() {
         if (format === 'sarif') { toast('SARIF export is available for real assessments.', 'info'); return }
         const content = format === 'json' ? JSON.stringify(report, null, 2) : `# Example WebProbe report\n\nTarget: ${scan?.url}\n\n${findings.map((item) => `## [${item.severity.toUpperCase()}] ${item.title}\n\n${item.evidence}\n\nRemediation: ${item.remediation}\n`).join('\n')}`
         saveBlob(new Blob([content], { type: format === 'json' ? 'application/json' : 'text/markdown' }), `webprobe-example.${format}`)
-      } else await api.download(settings.apiBase, id, format)
+      } else await api.download(id, format)
       toast(`${format === 'md' ? 'Markdown' : format.toUpperCase()} export started.`, 'success')
     } catch (caught) { toast(errorMessage(caught), 'error') }
   }

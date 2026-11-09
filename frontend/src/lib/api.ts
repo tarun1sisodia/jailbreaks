@@ -9,19 +9,18 @@ export class ApiError extends Error {
   }
 }
 
-let apiKey = ''
+// Locked-down client: every call goes to the same-origin Workers proxy
+// (BASE = '/api' on the Workers site). The browser never holds, sends or
+// stores a credential. The proxy adds the backend auth header server-side
+// from Workers Secrets, routes by engine (webprobe -> Render, other engines -> box6),
+// and wakes box6 on demand. Direct calls to Render/box6 without a key
+// still return 401 — that is the backends' own auth, unchanged.
+const BASE = '/api'
 
-function endpoint(base: string, path: string): string {
-  return `${base.replace(/\/+$/, '')}${path}`
-}
-
-async function request(base: string, path: string, init?: RequestInit): Promise<Response> {
+async function request(path: string, init?: RequestInit): Promise<Response> {
   let response: Response
   try {
-    // mode: 'cors' is explicit: the dashboard calls the API cross-origin
-    // (Workers frontend -> Render backend), so the browser enforces the
-    // backend's CORS allow-list. Auth is the X-API-Key header, not cookies.
-    response = await fetch(endpoint(base, path), { mode: 'cors', ...init, headers: { Accept: 'application/json', ...(apiKey ? { 'X-API-Key': apiKey } : {}), ...init?.headers }, cache: 'no-store' })
+    response = await fetch(`${BASE}${path}`, { ...init, headers: { Accept: 'application/json', ...init?.headers }, cache: 'no-store' })
   } catch {
     throw new ApiError('Backend unreachable. Check the connection and try again.')
   }
@@ -37,43 +36,40 @@ async function request(base: string, path: string, init?: RequestInit): Promise<
 }
 
 export const api = {
-  setApiKey(key: string): void {
-    apiKey = key
+  async health(): Promise<Health> {
+    return (await request('/health')).json()
   },
-  async health(base: string): Promise<Health> {
-    return (await request(base, '/health')).json()
+  async scans(): Promise<Scan[]> {
+    return (await request('/scans?limit=1000')).json()
   },
-  async scans(base: string): Promise<Scan[]> {
-    return (await request(base, '/scans?limit=1000')).json()
+  async profiles(): Promise<Profiles> {
+    return (await request('/profiles')).json()
   },
-  async profiles(base: string): Promise<Profiles> {
-    return (await request(base, '/profiles')).json()
+  async engines(): Promise<Engines> {
+    return (await request('/engines')).json()
   },
-  async engines(base: string): Promise<Engines> {
-    return (await request(base, '/engines')).json()
+  async scan(id: string): Promise<Scan> {
+    return (await request(`/scan/${encodeURIComponent(id)}`)).json()
   },
-  async scan(base: string, id: string): Promise<Scan> {
-    return (await request(base, `/scan/${encodeURIComponent(id)}`)).json()
-  },
-  async start(base: string, payload: ScanRequest): Promise<ScanStarted> {
-    return (await request(base, '/scan', {
+  async start(payload: ScanRequest): Promise<ScanStarted> {
+    return (await request('/scan', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     })).json()
   },
-  async abort(base: string, id: string): Promise<void> {
-    await request(base, `/scan/${encodeURIComponent(id)}/abort`, { method: 'POST' })
+  async abort(id: string): Promise<void> {
+    await request(`/scan/${encodeURIComponent(id)}/abort`, { method: 'POST' })
   },
-  async report(base: string, id: string): Promise<Report> {
-    const response = await request(base, `/scan/${encodeURIComponent(id)}/report?format=json`)
+  async report(id: string): Promise<Report> {
+    const response = await request(`/scan/${encodeURIComponent(id)}/report?format=json`)
     if (response.status === 202) throw new ApiError('Report is not ready yet.', 202)
     return response.json()
   },
-  async log(base: string, id: string): Promise<string> {
-    const response = await request(base, `/scan/${encodeURIComponent(id)}/report?format=log`, { headers: { Accept: 'text/plain' } })
+  async log(id: string): Promise<string> {
+    const response = await request(`/scan/${encodeURIComponent(id)}/report?format=log`, { headers: { Accept: 'text/plain' } })
     return response.text()
   },
-  async download(base: string, id: string, format: 'json' | 'md' | 'sarif'): Promise<void> {
-    const response = await request(base, `/scan/${encodeURIComponent(id)}/report?format=${format}`)
+  async download(id: string, format: 'json' | 'md' | 'sarif'): Promise<void> {
+    const response = await request(`/scan/${encodeURIComponent(id)}/report?format=${format}`)
     if (response.status === 202) throw new ApiError('Report is not ready yet.', 202)
     saveBlob(await response.blob(), `webprobe-${id}.${format}`)
   },

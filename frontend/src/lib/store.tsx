@@ -1,20 +1,19 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Engines, Health, Profiles, Scan, Settings } from '../types'
 import { api, errorMessage } from './api'
 import { EXAMPLE_SCANS } from './examples'
-import { validApiBase } from './format'
 
 export const DEFAULT_SETTINGS: Settings = {
-  apiBase: 'https://jailbreaks-46uf.onrender.com/api', apiKey: '', defaultProfile: 'quick', rateLimit: 3, aimd: true, redact: true, theme: 'dark', reduceMotion: false,
+  defaultProfile: 'quick', rateLimit: 3, aimd: true, redact: true, theme: 'dark', reduceMotion: false,
 }
 
 function readSettings(): Settings {
   try {
     const stored = JSON.parse(localStorage.getItem('wp.settings') || '{}') as Partial<Settings>
+    // Legacy connection fields (if present from an older build) are dropped
+    // here and never sent anywhere. The proxy holds the backend keys.
     return {
-      apiBase: typeof stored.apiBase === 'string' && validApiBase(stored.apiBase) ? stored.apiBase : DEFAULT_SETTINGS.apiBase,
-      apiKey: typeof stored.apiKey === 'string' ? stored.apiKey : '',
       defaultProfile: stored.defaultProfile && ['quick', 'owasp', 'full', 'api'].includes(stored.defaultProfile) ? stored.defaultProfile : DEFAULT_SETTINGS.defaultProfile,
       rateLimit: typeof stored.rateLimit === 'number' && Number.isFinite(stored.rateLimit) ? Math.max(0.5, Math.min(20, stored.rateLimit)) : DEFAULT_SETTINGS.rateLimit,
       aimd: typeof stored.aimd === 'boolean' ? stored.aimd : DEFAULT_SETTINGS.aimd,
@@ -57,16 +56,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [profiles, setProfiles] = useState<Profiles | null>(null)
   const [engines, setEngines] = useState<Engines | null>(null)
   const [toasts, setToasts] = useState<ToastItem[]>([])
-  const currentApiBase = useRef(settings.apiBase)
-  currentApiBase.current = settings.apiBase
 
   const updateSettings = useCallback((changes: Partial<Settings>) => {
     setSettings((current) => ({ ...current, ...changes }))
   }, [])
-
-  useEffect(() => {
-    api.setApiKey(settings.apiKey)
-  }, [settings.apiKey])
 
   useEffect(() => {
     try { localStorage.setItem('wp.settings', JSON.stringify(settings)) } catch { /* Storage may be unavailable. */ }
@@ -81,26 +74,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [settings])
 
   const refreshHealth = useCallback(async () => {
-    const base = settings.apiBase
-    try { const result = await api.health(base); if (currentApiBase.current === base) setHealth(result) }
-    catch { if (currentApiBase.current === base) setHealth(null) }
-    finally { if (currentApiBase.current === base) setHealthLoading(false) }
-  }, [settings.apiBase])
+    try { setHealth(await api.health()) }
+    catch { setHealth(null) }
+    finally { setHealthLoading(false) }
+  }, [])
   const refreshScans = useCallback(async () => {
-    const base = settings.apiBase
-    try { const result = await api.scans(base); if (currentApiBase.current === base) { setScans(result); setScansError('') } }
-    catch (error) { if (currentApiBase.current === base) setScansError(errorMessage(error)) }
-  }, [settings.apiBase])
+    try { setScans(await api.scans()); setScansError('') }
+    catch (error) { setScansError(errorMessage(error)) }
+  }, [])
   const refreshProfiles = useCallback(async () => {
-    const base = settings.apiBase
-    try { const result = await api.profiles(base); if (currentApiBase.current === base) setProfiles(result) }
-    catch { if (currentApiBase.current === base) setProfiles(null) }
-  }, [settings.apiBase])
+    try { setProfiles(await api.profiles()) }
+    catch { setProfiles(null) }
+  }, [])
   const refreshEngines = useCallback(async () => {
-    const base = settings.apiBase
-    try { const result = await api.engines(base); if (currentApiBase.current === base) setEngines(result) }
-    catch { if (currentApiBase.current === base) setEngines(null) }
-  }, [settings.apiBase])
+    try { setEngines(await api.engines()) }
+    catch { setEngines(null) }
+  }, [])
 
   useEffect(() => {
     setHealth(null)

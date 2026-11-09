@@ -4,6 +4,7 @@ FastAPI wrapper to execute webprobe vulnerability and logic scans on-demand.
 Includes CORS support for Cloudflare Pages and optional Cloudflare R2 report persistence.
 """
 
+import hmac
 import ipaddress
 import json
 import os
@@ -13,6 +14,8 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.error
+import urllib.request
 import uuid
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional
@@ -569,6 +572,106 @@ def list_engines() -> Dict[str, Any]:
     """Which scan engines are installed on this host. Public like /health:
     it only names installed tools, and the frontend has no API-key wiring yet."""
     return engines.engine_status()
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args):  # type: ignore[override]
+        raise RuntimeError("redirect refused, verify the endpoint")
+
+
+def _instabox_call(method: str, path: str, body: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """One authenticated call to the InstaBox API. Keys come from Render
+    env only (INSTABOX_API_KEY); nothing here is ever logged or returned."""
+    base = os.environ.get("INSTABOX_API_BASE", "https://api.instabox.sh").rstrip("/")
+    api_key = os.environ.get("INSTABOX_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("InstaBox API key is not configured")
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    req = urllib.request.Request(base + path, data=data, method=method)
+    req.add_header("X-API-Key", api_key)
+    if data is not None:
+        req.add_header("Content-Type", "application/json")
+        req.add_header("Idempotency-Key", str(uuid.uuid4()))
+    try:
+        with urllib.request.build_opener(_NoRedirect()).open(req, timeout=15) as resp:
+            if resp.status == 204:
+                return {}
+            return json.loads(resp.read().decode("utf-8") or "{}")
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"InstaBox HTTP {exc.code} on {method} {path}") from exc
+
+
+def _instabox_machine() -> Dict[str, Any]:
+    wanted = os.environ.get("INSTABOX_BOX6_MACHINE_ID", "")
+    machines = _instabox_call("GET", "/v1/machines").get("machines", [])
+    if wanted:
+        for machine in machines:
+            if machine.get("id") == wanted:
+                return machine
+        raise RuntimeError("Configured InstaBox machine id was not found")
+    if len(machines) == 1:
+        return machines[0]
+    for machine in machines:
+        if machine.get("name") == "box6":
+            return machine
+    raise RuntimeError("No single InstaBox machine found for box6")
+
+
+def _machine_ready(machine: Dict[str, Any]) -> bool:
+    return machine.get("state") == "running" and bool(
+        machine.get("ready") or (machine.get("runtime") or {}).get("ready")
+    )
+
+
+def _wake_box6() -> Dict[str, Any]:
+    """Resume box6 if suspended, then poll until it is running+ready.
+    Max ~90s total. No keepalive timer anywhere: this runs only when a
+    scan actually needs box6. Returns {"ready": bool, "state": str}."""
+    deadline = time.time() + 90
+    machine = _instabox_machine()
+    machine_id = machine.get("id")
+    woke = False
+    if machine.get("state") == "suspended":
+        result = _instabox_call("POST", f"/v1/machines/{machine_id}/resume", {})
+        operation_id = result.get("id")
+        if operation_id:
+            while time.time() < deadline:
+                operation = _instabox_call("GET", f"/v1/operations/{operation_id}")
+                if operation.get("state") in ("succeeded", "failed"):
+                    break
+                time.sleep(5)
+        woke = True
+    while time.time() < deadline:
+        machine = _instabox_call("GET", f"/v1/machines/{machine_id}")
+        if _machine_ready(machine):
+            return {"ready": True, "state": machine.get("state", "running"), "woke": woke}
+        time.sleep(5)
+    return {"ready": False, "state": machine.get("state", "unknown"), "woke": woke}
+
+
+@api.post("/wake/box6", tags=["System"])
+def wake_box6(request: Request) -> Dict[str, Any]:
+    """Wake box6 on demand for the Workers proxy. Protected by a shared
+    secret (WAKE_SECRET, Render env only) sent as X-Wake-Secret — this is
+    NOT the WebProbe API key and it is never exposed to the browser.
+    If WAKE_SECRET / INSTABOX_API_KEY are not configured, wake is
+    unavailable (503) and the proxy falls back or asks for a retry."""
+    secret = os.environ.get("WAKE_SECRET", "")
+    if not secret:
+        raise HTTPException(status_code=503, detail="Wake service is not configured")
+    presented = request.headers.get("X-Wake-Secret", "")
+    if not presented or not hmac.compare_digest(presented, secret):
+        raise HTTPException(status_code=401, detail="Invalid wake secret")
+    try:
+        result = _wake_box6()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if result["ready"]:
+        return result
+    return JSONResponse(
+        status_code=202,
+        content={**result, "note": "Box6 is still waking; retry in about 30 seconds."},
+    )
 
 
 @api.get("/profiles", tags=["Configuration"])

@@ -15,7 +15,7 @@ const ansi = /\u001b\[[0-9;]*m/g
 export function ConsolePage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
-  const { settings, toast, refreshScans } = useWorkspace()
+  const { toast, refreshScans } = useWorkspace()
   const sample = exampleScan(id)
   const [scan, setScan] = useState<Scan | null>(sample || null)
   const [log, setLog] = useState(sample ? (sample.status === 'failed' ? EXAMPLE_FAILED_LOG : EXAMPLE_LOG) : '')
@@ -33,7 +33,7 @@ export function ConsolePage() {
   const refresh = useCallback(async () => {
     if (sample) return
     try {
-      const next = await api.scan(settings.apiBase, id)
+      const next = await api.scan(id)
       setScan(next); setError('')
       if (next.status === 'completed' && !redirected.current) {
         redirected.current = true
@@ -41,8 +41,8 @@ export function ConsolePage() {
         void refreshScans()
       }
     } catch (caught) { setError(errorMessage(caught)) } finally { setLoading(false) }
-    try { setLog(await api.log(settings.apiBase, id)); setLogError('') } catch (caught) { setLogError(errorMessage(caught)) }
-  }, [id, navigate, refreshScans, sample, settings.apiBase])
+    try { setLog(await api.log(id)); setLogError('') } catch (caught) { setLogError(errorMessage(caught)) }
+  }, [id, navigate, refreshScans, sample])
 
   useEffect(() => {
     setScan(sample || null)
@@ -66,7 +66,7 @@ export function ConsolePage() {
   async function abort() {
     setAborting(true)
     try {
-      await api.abort(settings.apiBase, id)
+      await api.abort(id)
       toast('Assessment aborted.', 'info')
       setAbortOpen(false)
       await refresh()

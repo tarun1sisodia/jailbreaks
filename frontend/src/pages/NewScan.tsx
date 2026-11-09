@@ -47,14 +47,15 @@ export function NewScan() {
     if (webhook && !validHttpUrl(webhook)) { setSubmitError('Enter a valid webhook URL.'); return }
     setUrlError(''); setSubmitError(''); setLoading(true)
     try {
-      const result = await api.start(settings.apiBase, {
+      const result = await api.start({
         url: engine === 'argus' ? '' : url.trim(), repo: repo.trim() || undefined, profile, engine, rate_limit: rateLimit, aimd, redact,
         cookie, secondary_cookie: secondaryCookie, admin_cookie: adminCookie,
         webhook_callback: webhook.trim() || null,
       })
       rememberScan(result.scan_id)
       void refreshScans()
-      toast('Assessment queued.', 'success')
+      if (result.fallback) toast(result.note || 'Full engines were asleep; ran WebProbe only.', 'info')
+      else toast('Assessment queued.', 'success')
       navigate(`/scans/${result.scan_id}`)
     } catch (error) { setSubmitError(errorMessage(error)) } finally { setLoading(false) }
   }

@@ -14,8 +14,9 @@ export type Engines = Record<string, EngineInfo>
 export type Theme = 'system' | 'dark' | 'light'
 
 export interface Settings {
-  apiBase: string
-  apiKey: string
+  // Locked down: no backend URL or credential in settings. The frontend
+  // talks only to the same-origin Workers proxy (/api); the proxy holds
+  // the backend keys server-side. Legacy stored values are dropped on load.
   defaultProfile: ProfileId
   rateLimit: number
   aimd: boolean
@@ -66,6 +67,11 @@ export interface ScanStarted {
   scan_id: string
   target: string
   status: string
+  // Set by the proxy when box6 was asleep and the scan fell back to the
+  // Render WebProbe engine. Never report a fallback scan as a full-engine scan.
+  engine_used?: string
+  fallback?: boolean
+  note?: string
 }
 
 export type Profiles = Record<string, { count: number; checks: string[] }>

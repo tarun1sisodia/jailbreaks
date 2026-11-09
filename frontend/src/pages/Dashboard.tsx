@@ -40,7 +40,7 @@ export function Dashboard() {
     setError('')
     setLoading(true)
     try {
-      const result = await api.start(settings.apiBase, { url: url.trim(), profile, rate_limit: settings.rateLimit, aimd: settings.aimd, redact: settings.redact })
+      const result = await api.start({ url: url.trim(), profile, rate_limit: settings.rateLimit, aimd: settings.aimd, redact: settings.redact })
       rememberScan(result.scan_id)
       void refreshScans()
       toast('Assessment queued.', 'success')

@@ -1,5 +1,12 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
+  // Worker entrypoint is worker.js: it serves /api/* as the locked-down
+  // proxy (keys in Workers Secrets, never in code) and falls through to
+  // the static SPA for every other path.
+  // Secrets (set with `wrangler secret put`, never in this file):
+  // RENDER_API_URL, RENDER_API_KEY, BOX6_API_URL, BOX6_API_KEY,
+  // BOX6_PORT_TOKEN, WAKE_URL, WAKE_SECRET, ALLOWED_ORIGINS
+  "main": "worker.js",
   "assets": {
     "not_found_handling": "single-page-application",
     "directory": "./dist"
