@@ -139,3 +139,101 @@ def test_cve_detects_jira_822(mock_server, ctx_factory):
 
     findings = check_cve(ctx_factory())
     assert _find(findings, "CVE-2019-11581")
+
+
+def test_cve_detects_php_redirect_truncation_vendor_range(mock_server, ctx_factory):
+    base_url, routes, _, _ = mock_server
+    # 8.2.26 is inside the vendor's affected range but outside NVD's
+    # (conflicting) CPE upper bound. The DB must use the vendor range.
+    routes["GET /"] = (200, "<html>ok</html>", {"X-Powered-By": "PHP/8.2.26"})
+
+    findings = check_cve(ctx_factory())
+    assert _find(findings, "CVE-2025-1861")
+
+
+def test_cve_ignores_php_redirect_truncation_fixed(mock_server, ctx_factory):
+    base_url, routes, _, _ = mock_server
+    routes["GET /"] = (200, "<html>ok</html>", {"X-Powered-By": "PHP/8.2.28"})
+
+    findings = check_cve(ctx_factory())
+    assert not _find(findings, "CVE-2025-1861")
+
+
+def test_cve_detects_php_oom_rce(mock_server, ctx_factory):
+    base_url, routes, _, _ = mock_server
+    routes["GET /"] = (200, "<html>ok</html>", {"X-Powered-By": "PHP/8.4.20"})
+
+    findings = check_cve(ctx_factory())
+    assert _find(findings, "CVE-2026-109618")
+    assert _find(findings, "CVE-2026-109619")
+
+
+def test_cve_ignores_php_oom_rce_fixed(mock_server, ctx_factory):
+    base_url, routes, _, _ = mock_server
+    routes["GET /"] = (200, "<html>ok</html>", {"X-Powered-By": "PHP/8.4.27"})
+
+    findings = check_cve(ctx_factory())
+    assert not _find(findings, "CVE-2026-109618")
+    assert not _find(findings, "CVE-2026-109619")
+
+
+def test_cve_detects_nextjs_middleware_bypass(mock_server, ctx_factory):
+    base_url, routes, _, _ = mock_server
+    routes["GET /"] = (200, "<html>ok</html>",
+                       {"X-Powered-By": "Next.js/15.1.0"})
+
+    findings = check_cve(ctx_factory())
+    assert _find(findings, "CVE-2025-29927")
+    assert _find(findings, "CVE-2025-55182")
+
+
+def test_cve_ignores_nextjs_fixed_versions(mock_server, ctx_factory):
+    base_url, routes, _, _ = mock_server
+    routes["GET /"] = (200, "<html>ok</html>",
+                       {"X-Powered-By": "Next.js/15.2.6"})
+
+    findings = check_cve(ctx_factory())
+    assert not _find(findings, "CVE-2025-29927")
+    assert not _find(findings, "CVE-2025-55182")
+
+
+def test_cve_ignores_nextjs_banner_without_version(mock_server, ctx_factory):
+    base_url, routes, _, _ = mock_server
+    routes["GET /"] = (200, "<html>ok</html>",
+                       {"X-Powered-By": "Next.js"})
+
+    findings = check_cve(ctx_factory())
+    assert not _find(findings, "CVE-2025-29927")
+    assert not _find(findings, "CVE-2025-55182")
+
+
+def test_cve_detects_aspnetcore_request_smuggling(mock_server, ctx_factory):
+    base_url, routes, _, _ = mock_server
+    routes["GET /"] = (200, "<html>ok</html>", {"Server": "Kestrel/8.0.20"})
+
+    findings = check_cve(ctx_factory())
+    assert _find(findings, "CVE-2025-55315")
+
+
+def test_cve_ignores_aspnetcore_fixed(mock_server, ctx_factory):
+    base_url, routes, _, _ = mock_server
+    routes["GET /"] = (200, "<html>ok</html>", {"Server": "Kestrel/8.0.21"})
+
+    findings = check_cve(ctx_factory())
+    assert not _find(findings, "CVE-2025-55315")
+
+
+def test_cve_detects_dotnet_brotli_rce(mock_server, ctx_factory):
+    base_url, routes, _, _ = mock_server
+    routes["GET /"] = (200, "<html>ok</html>", {"Server": ".NET/8.0.32"})
+
+    findings = check_cve(ctx_factory())
+    assert _find(findings, "CVE-2026-111497")
+
+
+def test_cve_ignores_dotnet_fixed(mock_server, ctx_factory):
+    base_url, routes, _, _ = mock_server
+    routes["GET /"] = (200, "<html>ok</html>", {"Server": ".NET/8.0.33"})
+
+    findings = check_cve(ctx_factory())
+    assert not _find(findings, "CVE-2026-111497")

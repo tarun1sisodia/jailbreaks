@@ -59,6 +59,7 @@ def test_known_products_are_covered():
         "nginx", "Apache Tomcat", "WordPress", "Drupal", "Joomla",
         "AngularJS", "lodash", "Moment.js", "Handlebars", "Axios",
         "DOMPurify", "OpenSSL", "Atlassian Jira",
+        "Next.js", "ASP.NET Core", ".NET",
     }
     assert required <= products, f"missing products: {required - products}"
 

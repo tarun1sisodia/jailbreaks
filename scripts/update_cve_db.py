@@ -405,6 +405,185 @@ WATCHLIST = [
         ],
     },
     {
+        "product": "PHP",
+        "source": "headers",
+        "regex": r"PHP/(\d+\.\d+\.\d+)",
+        "rules": [
+            {
+                "cve": "CVE-2025-1861",
+                "severity": "critical",
+                "title": "PHP redirect Location truncation (CVE-2025-1861)",
+                "manual_ranges": [
+                    {"low": [8, 1, 0, 0], "high": [8, 1, 32, 0], "high_exclusive": True},
+                    {"low": [8, 2, 0, 0], "high": [8, 2, 28, 0], "high_exclusive": True},
+                    {"low": [8, 3, 0, 0], "high": [8, 3, 19, 0], "high_exclusive": True},
+                    {"low": [8, 4, 0, 0], "high": [8, 4, 5, 0], "high_exclusive": True},
+                ],
+                "remediation": "Upgrade to PHP 8.1.32 / 8.2.28 / 8.3.19 / 8.4.5 or later.",
+                "note": "NVD primary score is 9.8; the PHP CNA scores it 6.3 (medium). "
+                        "NVD CPE upper bounds conflict with the vendor advisory, so the "
+                        "vendor ranges are used here.",
+            },
+            {
+                "cve": "CVE-2026-109618",
+                "severity": "critical",
+                "title": "PHP out-of-memory longjmp remote code execution (CVE-2026-109618)",
+                "manual_ranges": [
+                    {"low": [7, 3, 0, 0], "high": [8, 2, 35, 0], "high_exclusive": True},
+                    {"low": [8, 3, 0, 0], "high": [8, 3, 36, 0], "high_exclusive": True},
+                    {"low": [8, 4, 0, 0], "high": [8, 4, 27, 0], "high_exclusive": True},
+                    {"low": [8, 5, 0, 0], "high": [8, 5, 12, 0], "high_exclusive": True},
+                ],
+                "remediation": "Upgrade to PHP 8.2.35 / 8.3.36 / 8.4.27 / 8.5.12 or later.",
+                "note": "CISA KEV: known exploited. Requires the PHP build to hit the "
+                        "out-of-memory path; confirm the exact runtime configuration.",
+            },
+            {
+                "cve": "CVE-2026-109619",
+                "severity": "high",
+                "title": "PHP stale global state remote code execution (CVE-2026-109619)",
+                "manual_ranges": [
+                    {"low": [5, 4, 0, 0], "high": [8, 2, 35, 0], "high_exclusive": True},
+                    {"low": [8, 3, 0, 0], "high": [8, 3, 36, 0], "high_exclusive": True},
+                    {"low": [8, 4, 0, 0], "high": [8, 4, 27, 0], "high_exclusive": True},
+                    {"low": [8, 5, 0, 0], "high": [8, 5, 12, 0], "high_exclusive": True},
+                ],
+                "remediation": "Upgrade to PHP 8.2.35 / 8.3.36 / 8.4.27 / 8.5.12 or later.",
+                "note": "CISA KEV: known exploited. Version detection alone does not "
+                        "prove the stale-state path is reachable.",
+            },
+        ],
+    },
+    {
+        "product": "Next.js",
+        "source": "headers",
+        "regex": r"(?i)Next\.js/(\d+\.\d+\.\d+)",
+        "rules": [
+            {
+                "cve": "CVE-2025-29927",
+                "severity": "critical",
+                "title": "Next.js middleware authorization bypass (CVE-2025-29927)",
+                "manual_ranges": [
+                    {"low": [11, 1, 4, 0], "high": [12, 3, 5, 0], "high_exclusive": True},
+                    {"low": [13, 0, 0, 0], "high": [13, 5, 9, 0], "high_exclusive": True},
+                    {"low": [14, 0, 0, 0], "high": [14, 2, 25, 0], "high_exclusive": True},
+                    {"low": [15, 0, 0, 0], "high": [15, 2, 3, 0], "high_exclusive": True},
+                ],
+                "remediation": "Upgrade to Next.js 12.3.5 / 13.5.9 / 14.2.25 / 15.2.3 "
+                               "or later; block x-middleware-subrequest at the proxy if "
+                               "patching is not possible.",
+            },
+            {
+                "cve": "CVE-2025-55182",
+                "severity": "critical",
+                "title": "Next.js React Server Components RCE (CVE-2025-55182)",
+                "manual_ranges": [
+                    {"low": [15, 0, 0, 0], "high": [15, 0, 5, 0], "high_exclusive": True},
+                    {"low": [15, 1, 0, 0], "high": [15, 1, 9, 0], "high_exclusive": True},
+                    {"low": [15, 2, 0, 0], "high": [15, 2, 6, 0], "high_exclusive": True},
+                    {"low": [15, 3, 0, 0], "high": [15, 3, 6, 0], "high_exclusive": True},
+                    {"low": [15, 4, 0, 0], "high": [15, 4, 8, 0], "high_exclusive": True},
+                    {"low": [15, 5, 0, 0], "high": [15, 5, 7, 0], "high_exclusive": True},
+                    {"low": [15, 6, 0, 0], "high": [15, 6, 0, 0]},
+                    {"low": [16, 0, 0, 0], "high": [16, 0, 7, 0], "high_exclusive": True},
+                ],
+                "remediation": "Upgrade to the vendor-fixed release for your line: "
+                               "14.2.35 / 15.0.8 / 15.1.12 / 15.2.9 / 15.3.9 / 15.4.11 "
+                               "/ 15.5.10 / 16.0.11 / 16.1.5.",
+                "note": "CISA KEV: known exploited. NVD ranges describe the initial "
+                        "patches; the vendor note lists the final fixed releases.",
+            },
+            {
+                "cve": "CVE-2026-64642",
+                "severity": "high",
+                "title": "Next.js i18n middleware authorization bypass (CVE-2026-64642)",
+                "manual_ranges": [
+                    {"low": [16, 0, 0, 0], "high": [16, 2, 11, 0], "high_exclusive": True},
+                ],
+                "remediation": "Upgrade to Next.js 16.2.11 or later.",
+            },
+            {
+                "cve": "CVE-2026-44578",
+                "severity": "high",
+                "title": "Next.js WebSocket upgrade SSRF (CVE-2026-44578)",
+                "manual_ranges": [
+                    {"low": [13, 4, 13, 0], "high": [15, 5, 16, 0], "high_exclusive": True},
+                    {"low": [16, 0, 0, 0], "high": [16, 2, 5, 0], "high_exclusive": True},
+                ],
+                "remediation": "Upgrade to Next.js 15.5.16 / 16.2.5 or later.",
+            },
+        ],
+    },
+    {
+        "product": "ASP.NET Core",
+        "source": "headers",
+        "regex": r"(?i)(?:ASP\.NET Core|Kestrel)/(\d+\.\d+\.\d+)",
+        "rules": [
+            {
+                "cve": "CVE-2025-55315",
+                "severity": "critical",
+                "title": "ASP.NET Core request smuggling (CVE-2025-55315)",
+                "manual_ranges": [
+                    {"low": [2, 3, 0, 0], "high": [2, 3, 6, 0], "high_exclusive": True},
+                    {"low": [8, 0, 0, 0], "high": [8, 0, 21, 0], "high_exclusive": True},
+                    {"low": [9, 0, 0, 0], "high": [9, 0, 10, 0], "high_exclusive": True},
+                ],
+                "remediation": "Upgrade to ASP.NET Core 2.3.6 / 8.0.21 / 9.0.10 or later.",
+            },
+            {
+                "cve": "CVE-2026-88092",
+                "severity": "critical",
+                "title": "ASP.NET Core request smuggling (CVE-2026-88092)",
+                "manual_ranges": [
+                    {"low": [8, 0, 0, 0], "high": [8, 0, 32, 0], "high_exclusive": True},
+                    {"low": [9, 0, 0, 0], "high": [9, 0, 21, 0], "high_exclusive": True},
+                    {"low": [10, 0, 0, 0], "high": [10, 0, 13, 0], "high_exclusive": True},
+                ],
+                "remediation": "Upgrade to ASP.NET Core 8.0.32 / 9.0.21 / 10.0.13 or later.",
+            },
+            {
+                "cve": "CVE-2026-26130",
+                "severity": "high",
+                "title": "ASP.NET Core denial of service (CVE-2026-26130)",
+                "manual_ranges": [
+                    {"low": [8, 0, 0, 0], "high": [8, 0, 25, 0], "high_exclusive": True},
+                    {"low": [9, 0, 0, 0], "high": [9, 0, 14, 0], "high_exclusive": True},
+                    {"low": [10, 0, 0, 0], "high": [10, 0, 4, 0], "high_exclusive": True},
+                ],
+                "remediation": "Upgrade to ASP.NET Core 8.0.25 / 9.0.14 / 10.0.4 or later.",
+            },
+        ],
+    },
+    {
+        "product": ".NET",
+        "source": "headers",
+        "regex": r"(?i)(?:\.NET|dotnet)/(\d+\.\d+\.\d+)",
+        "rules": [
+            {
+                "cve": "CVE-2026-111497",
+                "severity": "critical",
+                "title": "Brotli decoder RCE/DoS in .NET (CVE-2026-111497)",
+                "manual_ranges": [
+                    {"low": [8, 0, 0, 0], "high": [8, 0, 33, 0], "high_exclusive": True},
+                    {"low": [9, 0, 0, 0], "high": [9, 0, 22, 0], "high_exclusive": True},
+                    {"low": [10, 0, 0, 0], "high": [10, 0, 14, 0], "high_exclusive": True},
+                ],
+                "remediation": "Upgrade to .NET 8.0.33 / 9.0.22 / 10.0.14 or later.",
+                "note": "CISA KEV: known exploited. Only applications that decode "
+                        "attacker-controlled Brotli content are exposed.",
+            },
+            {
+                "cve": "CVE-2024-43498",
+                "severity": "critical",
+                "title": ".NET 9.0.0 type confusion RCE (CVE-2024-43498)",
+                "manual_ranges": [
+                    {"low": [9, 0, 0, 0], "high": [9, 0, 0, 0]},
+                ],
+                "remediation": "Upgrade to .NET 9.0.1 or later.",
+            },
+        ],
+    },
+    {
         "product": "Atlassian Jira",
         "source": "body",
         "regex": r"(?i)(?:Atlassian Jira|jira\.version[^0-9]{0,40})\s*(\d+\.\d+\.\d+)",
