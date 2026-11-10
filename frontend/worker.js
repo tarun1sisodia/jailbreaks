@@ -1,3 +1,5 @@
+// SECURITY NOTICE (2026-11-10): Any secrets previously committed to this file have been REVOKED by the developer and are NO LONGER VALID. Do not use them.
+
 // WebProbe Workers proxy — the ONLY place the browser's scans go.
 //
 // The frontend calls this Worker same-origin (/api/*) with NO credential.
@@ -42,11 +44,11 @@ const URL_ENGINES = new Set(['webprobe', 'kagesec', 'openosint', 'all'])
 
 const DEFAULTS = {
   RENDER_API_URL: 'https://jailbreaks-46uf.onrender.com/api',
-  RENDER_API_KEY: '422a800c9d29bc52bed66bc7a2f075e1be499175db7bdf9c23ead1a82c44f5c7',
+  RENDER_API_KEY: 'REVOKED-BY-DEVELOPER',
   BOX6_API_URL: 'https://8000-agq3oekm7yaprv7dohu23wsj2y.instabox.tech/api',
-  BOX6_API_KEY: '2uorf0L7GmD3DHHN6_yZC8pvpWvZQAGF3RYTR1YSpQo',
+  BOX6_API_KEY: 'REVOKED-BY-DEVELOPER',
   WAKE_URL: 'https://jailbreaks-46uf.onrender.com/api/wake/box6',
-  WAKE_SECRET: '30c6d814551f5abf48307dc87f48abd4',
+  WAKE_SECRET: 'REVOKED-BY-DEVELOPER',
   ALLOWED_ORIGINS: 'https://jailbreaks.coccoder999.workers.dev,http://localhost:5173',
 }
 
