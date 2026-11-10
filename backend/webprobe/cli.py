@@ -4,6 +4,8 @@ Command Line Interface and execution orchestrator for webprobe.
 
 import argparse
 import json
+import os
+import re
 import sys
 import time
 import urllib.parse
@@ -29,6 +31,57 @@ from webprobe.core.safety import (
 )
 
 VERSION = "3.0.0"
+
+# Config values may reference environment variables as ${NAME}. This keeps
+# live credentials out of the JSON file while still allowing one config file
+# to be used across environments.
+_ENV_PLACEHOLDER_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+# Credential-bearing keys can also be supplied as WEBPROBE_<KEY> environment
+# variables. Explicit CLI arguments still take precedence.
+_ENV_OVERRIDE_KEYS = frozenset({
+    "test_email",
+    "test_password",
+    "cookie",
+    "secondary_cookie",
+    "staff_cookie",
+    "admin_cookie",
+    "test_coupon",
+    "expired_coupon",
+    "ineligible_coupon",
+    "webhook_token",
+})
+
+
+def expand_env_placeholders(value: Any, missing: Optional[Set[str]] = None) -> Any:
+    """Expand ${NAME} references in config strings.
+
+    Unknown references become an empty string so a missing secret never
+    reaches the target as the literal placeholder text.
+    """
+    if not isinstance(value, str):
+        return value
+
+    def _replace(match: "re.Match[str]") -> str:
+        name = match.group(1)
+        if name not in os.environ:
+            if missing is not None:
+                missing.add(name)
+            return ""
+        return os.environ[name]
+
+    return _ENV_PLACEHOLDER_RE.sub(_replace, value)
+
+
+def apply_env_overrides(flat_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Override credential config keys from WEBPROBE_* environment variables."""
+    for key in list(flat_cfg):
+        if key not in _ENV_OVERRIDE_KEYS:
+            continue
+        env_key = f"WEBPROBE_{key.upper()}"
+        if env_key in os.environ:
+            flat_cfg[key] = os.environ[env_key]
+    return flat_cfg
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -295,6 +348,17 @@ def main(argv: Optional[List[str]] = None) -> int:
                             flat_cfg[sub_k] = sub_v
                     else:
                         flat_cfg[k] = v
+                missing_env: Set[str] = set()
+                flat_cfg = {
+                    k: expand_env_placeholders(v, missing_env)
+                    for k, v in flat_cfg.items()
+                }
+                apply_env_overrides(flat_cfg)
+                if missing_env:
+                    print(C.yellow(
+                        "[!] Config references unset environment variable(s): "
+                        + ", ".join(sorted(missing_env))
+                    ))
                 for k, v in flat_cfg.items():
                     attr = k.replace("-", "_")
                     if hasattr(args, attr):

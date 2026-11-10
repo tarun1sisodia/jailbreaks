@@ -1,0 +1,36 @@
+{
+  "_comment": "Example scan config for agraskbagheltourandtravels.com. Copy it, keep the copy private, and supply credentials through WEBPROBE_* environment variables or ${ENV_VAR} placeholders. Never commit live tokens.",
+  "url": "https://agraskbagheltourandtravels.com",
+  "profile": "quick",
+  "operational_controls": {
+    "rate_limit": 4.0,
+    "threads": 4,
+    "crawl_depth": 2,
+    "max_pages": 40,
+    "testing_hours": "",
+    "activity_log": "audit_agraskbaghel.tsv",
+    "abort_file": "webprobe.abort"
+  },
+  "credentials": {
+    "test_email": "${WEBPROBE_TEST_EMAIL}",
+    "test_password": "${WEBPROBE_TEST_PASSWORD}",
+    "cookie": "${WEBPROBE_COOKIE}",
+    "secondary_cookie": "${WEBPROBE_SECONDARY_COOKIE}",
+    "staff_cookie": "${WEBPROBE_STAFF_COOKIE}",
+    "admin_cookie": "${WEBPROBE_ADMIN_COOKIE}"
+  },
+  "business_and_payments": {
+    "test_coupon": "${WEBPROBE_TEST_COUPON}",
+    "expired_coupon": "${WEBPROBE_EXPIRED_COUPON}",
+    "ineligible_coupon": "${WEBPROBE_INELIGIBLE_COUPON}",
+    "state_url": "https://api.agraskbagheltourandtravels.com/api/v1/ops/admin/bookings",
+    "state_actions": "cancel,refund,complete",
+    "refund_url": "https://api.agraskbagheltourandtravels.com/api/v1/ops/admin/refunds",
+    "webhook_url": "https://api.agraskbagheltourandtravels.com/api/v1/payments/webhooks/razorpay"
+  },
+  "output_settings": {
+    "verbose": false,
+    "json": false,
+    "output": "report_agraskbaghel.txt"
+  }
+}

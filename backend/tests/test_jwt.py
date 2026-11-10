@@ -1,7 +1,7 @@
 def test_jwt_rs_hs_token_from_page(mock_server, ctx_factory):
     """Regression: `name` must default when token comes from HTML, not ctx.tokens."""
     base_url, routes, log, _ = mock_server
-    fake_jwt = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.c2lnbmF0dXJlMTIzNA"
+    fake_jwt = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.c2lnbmF0dXJlMTIzNA"  # secret-scan: allow (test fixture)
     routes["GET /"] = (200, f'<html><script>var t="{fake_jwt}"</script></html>',
                        {"Content-Type": "text/html"})
     routes["GET /.well-known/jwks.json"] = (200, {
@@ -22,7 +22,7 @@ def test_jwt_rs_hs_token_from_page(mock_server, ctx_factory):
 def test_jwt_jku_no_name_error(mock_server, ctx_factory):
     """Regression: check_jwt_jku must not raise NameError when token comes from page or tokens empty."""
     base_url, routes, log, _ = mock_server
-    fake_jwt = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.c2lnbmF0dXJlMTIzNA"
+    fake_jwt = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.c2lnbmF0dXJlMTIzNA"  # secret-scan: allow (test fixture)
     routes["GET /"] = (200, f'<html><script>var t="{fake_jwt}"</script></html>',
                        {"Content-Type": "text/html"})
 

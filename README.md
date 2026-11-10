@@ -131,11 +131,16 @@ Configuration files live in `backend/config/`. You can copy `config/config.examp
 ```
 
 #### Automatic Session Token Refresh (Supabase Stacks)
-For targets utilizing Supabase JWTs, tokens naturally expire. You can refresh active session tokens for Admin, Customer 1, and Customer 2 into your config in one command:
+For targets utilizing Supabase JWTs, tokens naturally expire. You can refresh active session tokens for Admin, Customer 1, and Customer 2 into a private runtime config in one command:
 
 ```bash
-python scripts/refresh_session.py
+python backend/scripts/refresh_session.py
 ```
+
+The script reads Supabase credentials from the environment or `.env` and writes
+`~/.secrets/jailbreaks/agraskbagheltourandtravels.runtime.json` with mode `600`.
+It never writes tokens back into the repository. Pass that path to
+`webprobe.py --config` when running an authenticated scan.
 
 ---
 
