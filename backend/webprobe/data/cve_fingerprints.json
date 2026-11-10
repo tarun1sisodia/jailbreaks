@@ -1,0 +1,2521 @@
+{
+  "schema_version": 1,
+  "generated": "2026-11-10",
+  "source": "NVD 2.0 API and vendor advisories",
+  "fingerprints": [
+    {
+      "product": "Apache HTTP Server",
+      "source": "headers",
+      "regex": "Apache/(\\d+(?:\\.\\d+){1,3})",
+      "rules": [
+        {
+          "cve": "CVE-2021-41773",
+          "severity": "critical",
+          "title": "Apache HTTP Server 2.4.49 path traversal / RCE",
+          "ranges": [
+            {
+              "low": [
+                2,
+                4,
+                49,
+                0
+              ],
+              "high": [
+                2,
+                4,
+                49,
+                999
+              ],
+              "high_exclusive": false
+            }
+          ],
+          "remediation": "Upgrade to Apache HTTP Server 2.4.51 or later. 2.4.50 is also affected by the incomplete-fix follow-up CVE-2021-42013."
+        },
+        {
+          "cve": "CVE-2021-42013",
+          "severity": "critical",
+          "title": "Apache HTTP Server 2.4.50 path traversal / RCE",
+          "ranges": [
+            {
+              "low": [
+                2,
+                4,
+                50,
+                0
+              ],
+              "high": [
+                2,
+                4,
+                50,
+                999
+              ],
+              "high_exclusive": false
+            }
+          ],
+          "remediation": "Upgrade to Apache HTTP Server 2.4.51 or later."
+        }
+      ]
+    },
+    {
+      "product": "PHP",
+      "source": "headers",
+      "regex": "PHP/(\\d+\\.\\d+\\.\\d+)",
+      "rules": [
+        {
+          "cve": "CVE-2024-4577",
+          "severity": "high",
+          "title": "PHP-CGI argument injection on Windows (CVE-2024-4577)",
+          "ranges": [
+            {
+              "low": [
+                8,
+                1,
+                0,
+                0
+              ],
+              "high": [
+                8,
+                1,
+                28,
+                999
+              ],
+              "high_exclusive": false
+            },
+            {
+              "low": [
+                8,
+                2,
+                0,
+                0
+              ],
+              "high": [
+                8,
+                2,
+                19,
+                999
+              ],
+              "high_exclusive": false
+            },
+            {
+              "low": [
+                8,
+                3,
+                0,
+                0
+              ],
+              "high": [
+                8,
+                3,
+                7,
+                999
+              ],
+              "high_exclusive": false
+            }
+          ],
+          "remediation": "Upgrade to PHP 8.1.29 / 8.2.20 / 8.3.8 or later; avoid PHP-CGI on Windows.",
+          "note": "Only exploitable when PHP-CGI is used on Windows; confirm the deployment mode before treating this as confirmed."
+        }
+      ]
+    },
+    {
+      "product": "Jenkins",
+      "source": "headers",
+      "regex": "(?i)X-Jenkins:\\s*(\\d+\\.\\d+(?:\\.\\d+)?)",
+      "rules": [
+        {
+          "cve": "CVE-2024-23897",
+          "severity": "critical",
+          "title": "Jenkins CLI arbitrary file read (CVE-2024-23897)",
+          "ranges": [
+            {
+              "low": [
+                2,
+                0,
+                0,
+                0
+              ],
+              "high": [
+                2,
+                426,
+                2,
+                999
+              ],
+              "high_exclusive": false
+            },
+            {
+              "low": [
+                2,
+                427,
+                0,
+                0
+              ],
+              "high": [
+                2,
+                441,
+                999,
+                999
+              ],
+              "high_exclusive": false
+            }
+          ],
+          "remediation": "Upgrade to Jenkins 2.442 or LTS 2.426.3 or later; disable the CLI if it is not needed."
+        }
+      ]
+    },
+    {
+      "product": "jQuery",
+      "source": "body",
+      "regex": "(?i)jquery[-/.]?(?:v)?(\\d+\\.\\d+\\.\\d+)",
+      "rules": [
+        {
+          "cve": "CVE-2020-11022 / CVE-2020-11023",
+          "severity": "medium",
+          "title": "jQuery XSS via HTML manipulation (CVE-2020-11022/11023)",
+          "ranges": [
+            {
+              "low": [
+                1,
+                2,
+                0,
+                0
+              ],
+              "high": [
+                3,
+                4,
+                999,
+                999
+              ],
+              "high_exclusive": false
+            }
+          ],
+          "remediation": "Upgrade jQuery to 3.5.0 or later and review untrusted HTML passed to .html()/.append()."
+        }
+      ]
+    },
+    {
+      "product": "Bootstrap",
+      "source": "body",
+      "regex": "(?i)bootstrap[-/.]?(?:v)?(\\d+\\.\\d+\\.\\d+)",
+      "rules": [
+        {
+          "cve": "CVE-2019-8331",
+          "severity": "medium",
+          "title": "Bootstrap tooltip/popover XSS (CVE-2019-8331)",
+          "ranges": [
+            {
+              "low": [
+                3,
+                0,
+                0,
+                0
+              ],
+              "high": [
+                3,
+                4,
+                0,
+                999
+              ],
+              "high_exclusive": false
+            },
+            {
+              "low": [
+                4,
+                0,
+                0,
+                0
+              ],
+              "high": [
+                4,
+                3,
+                0,
+                999
+              ],
+              "high_exclusive": false
+            }
+          ],
+          "remediation": "Upgrade to Bootstrap 3.4.1 / 4.3.1 or later."
+        }
+      ]
+    },
+    {
+      "product": "GitLab",
+      "source": "body",
+      "regex": "(?i)GitLab(?:\\s+(?:Community|Enterprise)\\s+Edition)?\\s+(\\d+\\.\\d+\\.\\d+)",
+      "rules": [
+        {
+          "cve": "CVE-2023-7028",
+          "severity": "critical",
+          "title": "GitLab account takeover via password reset (CVE-2023-7028)",
+          "ranges": [
+            {
+              "low": [
+                16,
+                1,
+                0,
+                0
+              ],
+              "high": [
+                16,
+                1,
+                5,
+                999
+              ],
+              "high_exclusive": false
+            },
+            {
+              "low": [
+                16,
+                2,
+                0,
+                0
+              ],
+              "high": [
+                16,
+                2,
+                8,
+                999
+              ],
+              "high_exclusive": false
+            },
+            {
+              "low": [
+                16,
+                3,
+                0,
+                0
+              ],
+              "high": [
+                16,
+                3,
+                6,
+                999
+              ],
+              "high_exclusive": false
+            },
+            {
+              "low": [
+                16,
+                4,
+                0,
+                0
+              ],
+              "high": [
+                16,
+                4,
+                4,
+                999
+              ],
+              "high_exclusive": false
+            },
+            {
+              "low": [
+                16,
+                5,
+                0,
+                0
+              ],
+              "high": [
+                16,
+                5,
+                5,
+                999
+              ],
+              "high_exclusive": false
+            },
+            {
+              "low": [
+                16,
+                6,
+                0,
+                0
+              ],
+              "high": [
+                16,
+                6,
+                3,
+                999
+              ],
+              "high_exclusive": false
+            },
+            {
+              "low": [
+                16,
+                7,
+                0,
+                0
+              ],
+              "high": [
+                16,
+                7,
+                1,
+                999
+              ],
+              "high_exclusive": false
+            }
+          ],
+          "remediation": "Upgrade to GitLab 16.1.6 / 16.2.9 / 16.3.7 / 16.4.5 / 16.5.6 / 16.6.4 / 16.7.2 or later."
+        }
+      ]
+    },
+    {
+      "product": "Confluence",
+      "source": "body",
+      "regex": "(?i)(?:Confluence|ajs-version-number[\\\"']?\\s+content=[\\\"'])\\s*(\\d+\\.\\d+\\.\\d+)",
+      "rules": [
+        {
+          "cve": "CVE-2023-22527",
+          "severity": "critical",
+          "title": "Confluence template injection / RCE (CVE-2023-22527)",
+          "ranges": [
+            {
+              "low": [
+                8,
+                0,
+                0,
+                0
+              ],
+              "high": [
+                8,
+                5,
+                3,
+                999
+              ],
+              "high_exclusive": false
+            }
+          ],
+          "remediation": "Upgrade Confluence Data Center/Server to 8.5.4 or later."
+        }
+      ]
+    },
+    {
+      "product": "TeamCity",
+      "source": "body",
+      "regex": "(?i)TeamCity[^0-9]{0,60}(\\d{4}\\.\\d+\\.\\d+)",
+      "rules": [
+        {
+          "cve": "CVE-2024-27198",
+          "severity": "critical",
+          "title": "TeamCity authentication bypass (CVE-2024-27198)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "high": [
+                2023,
+                11,
+                3,
+                999
+              ],
+              "high_exclusive": false
+            }
+          ],
+          "remediation": "Upgrade to TeamCity 2023.11.4 or later."
+        }
+      ]
+    },
+    {
+      "product": "GeoServer",
+      "source": "body",
+      "regex": "(?i)GeoServer[^0-9]{0,60}(\\d+\\.\\d+\\.\\d+)",
+      "rules": [
+        {
+          "cve": "CVE-2024-36401",
+          "severity": "critical",
+          "title": "GeoServer OGC property-name RCE (CVE-2024-36401)",
+          "ranges": [
+            {
+              "low": [
+                2,
+                22,
+                0,
+                0
+              ],
+              "high": [
+                2,
+                22,
+                5,
+                999
+              ],
+              "high_exclusive": false
+            },
+            {
+              "low": [
+                2,
+                23,
+                0,
+                0
+              ],
+              "high": [
+                2,
+                23,
+                5,
+                999
+              ],
+              "high_exclusive": false
+            },
+            {
+              "low": [
+                2,
+                24,
+                0,
+                0
+              ],
+              "high": [
+                2,
+                24,
+                3,
+                999
+              ],
+              "high_exclusive": false
+            },
+            {
+              "low": [
+                2,
+                25,
+                0,
+                0
+              ],
+              "high": [
+                2,
+                25,
+                1,
+                999
+              ],
+              "high_exclusive": false
+            }
+          ],
+          "remediation": "Upgrade to GeoServer 2.22.6 / 2.23.6 / 2.24.4 / 2.25.2 or later, or remove gt-complex-x.y.jar."
+        }
+      ]
+    },
+    {
+      "product": "nginx",
+      "source": "headers",
+      "regex": "(?i)nginx/(\\d+\\.\\d+\\.\\d+)",
+      "rules": [
+        {
+          "cve": "CVE-2021-23017",
+          "severity": "high",
+          "title": "nginx resolver off-by-one (CVE-2021-23017)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                6,
+                18
+              ],
+              "high": [
+                1,
+                20,
+                1
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to nginx 1.20.1 or later."
+        },
+        {
+          "cve": "CVE-2019-20372",
+          "severity": "medium",
+          "title": "nginx error_page request smuggling (CVE-2019-20372)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                1,
+                17,
+                7
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to nginx 1.17.7 or later."
+        }
+      ]
+    },
+    {
+      "product": "Apache Tomcat",
+      "source": "headers",
+      "regex": "(?i)Apache Tomcat/(\\d+\\.\\d+\\.\\d+)",
+      "rules": [
+        {
+          "cve": "CVE-2025-24813",
+          "severity": "critical",
+          "title": "Apache Tomcat partial PUT RCE / file disclosure (CVE-2025-24813)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                9,
+                0,
+                99
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                10,
+                1,
+                1
+              ],
+              "high": [
+                10,
+                1,
+                35
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                11,
+                0,
+                1
+              ],
+              "high": [
+                11,
+                0,
+                3
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to Tomcat 9.0.99 / 10.1.35 / 11.0.3 or later; disable partial PUT and default-servlet writes."
+        },
+        {
+          "cve": "CVE-2020-1938",
+          "severity": "critical",
+          "title": "Apache Tomcat AJP Ghostcat file read/inclusion (CVE-2020-1938)",
+          "ranges": [
+            {
+              "low": [
+                7,
+                0,
+                0
+              ],
+              "high": [
+                7,
+                0,
+                100
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                8,
+                5,
+                0
+              ],
+              "high": [
+                8,
+                5,
+                51
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                9,
+                0,
+                0
+              ],
+              "high": [
+                9,
+                0,
+                31
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to Tomcat 7.0.100 / 8.5.51 / 9.0.31 or later; disable the AJP connector or require a secret."
+        },
+        {
+          "cve": "CVE-2017-12615",
+          "severity": "high",
+          "title": "Apache Tomcat PUT JSP upload (CVE-2017-12615)",
+          "ranges": [
+            {
+              "low": [
+                7,
+                0,
+                0
+              ],
+              "high": [
+                7,
+                0,
+                79
+              ]
+            },
+            {
+              "low": [
+                8,
+                0,
+                0
+              ],
+              "high": [
+                8,
+                0,
+                44
+              ]
+            },
+            {
+              "low": [
+                8,
+                5,
+                0
+              ],
+              "high": [
+                8,
+                5,
+                15
+              ]
+            },
+            {
+              "low": [
+                9,
+                0,
+                0
+              ],
+              "high": [
+                9,
+                0,
+                0
+              ]
+            }
+          ],
+          "remediation": "Upgrade to Tomcat 7.0.80 / 8.0.45 / 8.5.16 / 9.0.0.M22 or later; disable HTTP PUT."
+        }
+      ]
+    },
+    {
+      "product": "WordPress",
+      "source": "body",
+      "regex": "(?i)WordPress\\s+(\\d+\\.\\d+(?:\\.\\d+)?)",
+      "rules": [
+        {
+          "cve": "CVE-2022-21661",
+          "severity": "high",
+          "title": "WordPress WP_Query SQL injection (CVE-2022-21661)",
+          "ranges": [
+            {
+              "low": [
+                3,
+                7
+              ],
+              "high": [
+                3,
+                7,
+                37
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                3,
+                8
+              ],
+              "high": [
+                3,
+                8,
+                37
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                3,
+                9
+              ],
+              "high": [
+                3,
+                9,
+                35
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                0
+              ],
+              "high": [
+                4,
+                0,
+                34
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                1
+              ],
+              "high": [
+                4,
+                1,
+                34
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                2
+              ],
+              "high": [
+                4,
+                2,
+                31
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                3
+              ],
+              "high": [
+                4,
+                3,
+                27
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                4
+              ],
+              "high": [
+                4,
+                4,
+                26
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                5
+              ],
+              "high": [
+                4,
+                5,
+                25
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                6
+              ],
+              "high": [
+                4,
+                6,
+                22
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                7
+              ],
+              "high": [
+                4,
+                7,
+                22
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                8
+              ],
+              "high": [
+                4,
+                8,
+                18
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                9
+              ],
+              "high": [
+                4,
+                9,
+                19
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                0
+              ],
+              "high": [
+                5,
+                0,
+                15
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                1
+              ],
+              "high": [
+                5,
+                1,
+                12
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                2
+              ],
+              "high": [
+                5,
+                2,
+                14
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                3
+              ],
+              "high": [
+                5,
+                3,
+                11
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                4
+              ],
+              "high": [
+                5,
+                4,
+                9
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                5
+              ],
+              "high": [
+                5,
+                5,
+                8
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                6
+              ],
+              "high": [
+                5,
+                6,
+                7
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                7
+              ],
+              "high": [
+                5,
+                7,
+                5
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                8
+              ],
+              "high": [
+                5,
+                8,
+                3
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to WordPress 5.8.3 or the fixed release for your branch."
+        },
+        {
+          "cve": "CVE-2022-21664",
+          "severity": "high",
+          "title": "WordPress SQL injection (CVE-2022-21664)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                5,
+                8,
+                3
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to WordPress 5.8.3 or later."
+        },
+        {
+          "cve": "CVE-2019-8942",
+          "severity": "high",
+          "title": "WordPress post-meta RCE (CVE-2019-8942)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                4,
+                9,
+                9
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                0,
+                0
+              ],
+              "high": [
+                5,
+                0,
+                1
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to WordPress 4.9.9 / 5.0.1 or later."
+        },
+        {
+          "cve": "CVE-2019-8943",
+          "severity": "medium",
+          "title": "WordPress wp_crop_image path traversal (CVE-2019-8943)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                5,
+                0,
+                3
+              ]
+            }
+          ],
+          "remediation": "Upgrade to WordPress 5.0.4 or later."
+        },
+        {
+          "cve": "CVE-2020-28032",
+          "severity": "high",
+          "title": "WordPress deserialization issue (CVE-2020-28032)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                5,
+                5,
+                2
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to WordPress 5.5.2 or later."
+        },
+        {
+          "cve": "CVE-2021-39201",
+          "severity": "medium",
+          "title": "WordPress editor XSS (CVE-2021-39201)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                5,
+                8,
+                0
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to WordPress 5.8 or later."
+        },
+        {
+          "cve": "CVE-2023-2745",
+          "severity": "medium",
+          "title": "WordPress wp_lang directory traversal (CVE-2023-2745)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                4,
+                1,
+                38
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                2
+              ],
+              "high": [
+                4,
+                2,
+                35
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                3
+              ],
+              "high": [
+                4,
+                3,
+                31
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                4
+              ],
+              "high": [
+                4,
+                4,
+                30
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                5
+              ],
+              "high": [
+                4,
+                5,
+                29
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                6
+              ],
+              "high": [
+                4,
+                6,
+                26
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                7
+              ],
+              "high": [
+                4,
+                7,
+                26
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                8
+              ],
+              "high": [
+                4,
+                8,
+                22
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                9
+              ],
+              "high": [
+                4,
+                9,
+                23
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                0
+              ],
+              "high": [
+                5,
+                0,
+                19
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                1
+              ],
+              "high": [
+                5,
+                1,
+                16
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                2
+              ],
+              "high": [
+                5,
+                2,
+                18
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                3
+              ],
+              "high": [
+                5,
+                3,
+                15
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                4
+              ],
+              "high": [
+                5,
+                4,
+                13
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                5
+              ],
+              "high": [
+                5,
+                5,
+                12
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                6
+              ],
+              "high": [
+                5,
+                6,
+                11
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                7
+              ],
+              "high": [
+                5,
+                7,
+                9
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                8
+              ],
+              "high": [
+                5,
+                8,
+                7
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                9
+              ],
+              "high": [
+                5,
+                9,
+                6
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                6,
+                0
+              ],
+              "high": [
+                6,
+                0,
+                4
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                6,
+                1
+              ],
+              "high": [
+                6,
+                1,
+                2
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                6,
+                2,
+                0
+              ],
+              "high": [
+                6,
+                2,
+                0
+              ]
+            }
+          ],
+          "remediation": "Upgrade to WordPress 6.2.1 or later."
+        },
+        {
+          "cve": "CVE-2024-31210",
+          "severity": "high",
+          "title": "WordPress plugin upload RCE (CVE-2024-31210)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                4,
+                1,
+                40
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                2
+              ],
+              "high": [
+                4,
+                2,
+                37
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                3
+              ],
+              "high": [
+                4,
+                3,
+                33
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                4
+              ],
+              "high": [
+                4,
+                4,
+                32
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                5
+              ],
+              "high": [
+                4,
+                5,
+                31
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                6
+              ],
+              "high": [
+                4,
+                6,
+                28
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                7
+              ],
+              "high": [
+                4,
+                7,
+                28
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                8
+              ],
+              "high": [
+                4,
+                8,
+                24
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                4,
+                9
+              ],
+              "high": [
+                4,
+                9,
+                25
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                0
+              ],
+              "high": [
+                5,
+                0,
+                21
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                1
+              ],
+              "high": [
+                5,
+                1,
+                18
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                2
+              ],
+              "high": [
+                5,
+                2,
+                20
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                3
+              ],
+              "high": [
+                5,
+                3,
+                17
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                4
+              ],
+              "high": [
+                5,
+                4,
+                15
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                5
+              ],
+              "high": [
+                5,
+                5,
+                14
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                6
+              ],
+              "high": [
+                5,
+                6,
+                13
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                7
+              ],
+              "high": [
+                5,
+                7,
+                11
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                8
+              ],
+              "high": [
+                5,
+                8,
+                9
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                5,
+                9
+              ],
+              "high": [
+                5,
+                9,
+                9
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                6,
+                0
+              ],
+              "high": [
+                6,
+                0,
+                7
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                6,
+                1
+              ],
+              "high": [
+                6,
+                1,
+                5
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                6,
+                2
+              ],
+              "high": [
+                6,
+                2,
+                4
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                6,
+                3
+              ],
+              "high": [
+                6,
+                3,
+                3
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                6,
+                4,
+                0
+              ],
+              "high": [
+                6,
+                4,
+                3
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to WordPress 6.4.3 or later."
+        }
+      ]
+    },
+    {
+      "product": "Drupal",
+      "source": "body",
+      "regex": "(?i)Drupal\\s+(\\d+(?:\\.\\d+){0,2})",
+      "rules": [
+        {
+          "cve": "CVE-2018-7600",
+          "severity": "critical",
+          "title": "Drupalgeddon2 remote code execution (CVE-2018-7600)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                7,
+                57
+              ]
+            },
+            {
+              "low": [
+                8,
+                0,
+                0
+              ],
+              "high": [
+                8,
+                3,
+                9
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                8,
+                4,
+                0
+              ],
+              "high": [
+                8,
+                4,
+                6
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                8,
+                5,
+                0
+              ],
+              "high": [
+                8,
+                5,
+                1
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to Drupal 7.58 / 8.3.9 / 8.4.6 / 8.5.1 or later."
+        },
+        {
+          "cve": "CVE-2018-7602",
+          "severity": "critical",
+          "title": "Drupalgeddon2 follow-up RCE (CVE-2018-7602)",
+          "ranges": [
+            {
+              "low": [
+                7,
+                0
+              ],
+              "high": [
+                7,
+                59
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                8,
+                4,
+                0
+              ],
+              "high": [
+                8,
+                4,
+                8
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                8,
+                5,
+                0
+              ],
+              "high": [
+                8,
+                5,
+                3
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to Drupal 7.59 / 8.4.8 / 8.5.3 or later."
+        },
+        {
+          "cve": "CVE-2019-6340",
+          "severity": "critical",
+          "title": "Drupal REST module RCE (CVE-2019-6340)",
+          "ranges": [
+            {
+              "low": [
+                8,
+                5,
+                0
+              ],
+              "high": [
+                8,
+                5,
+                11
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                8,
+                6,
+                0
+              ],
+              "high": [
+                8,
+                6,
+                10
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to Drupal 8.5.11 / 8.6.10 or later."
+        },
+        {
+          "cve": "CVE-2020-13671",
+          "severity": "high",
+          "title": "Drupal uploaded-file MIME confusion (CVE-2020-13671)",
+          "ranges": [
+            {
+              "low": [
+                7,
+                0
+              ],
+              "high": [
+                7,
+                74
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                8,
+                8,
+                0
+              ],
+              "high": [
+                8,
+                8,
+                11
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                8,
+                9,
+                0
+              ],
+              "high": [
+                8,
+                9,
+                9
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                9,
+                0,
+                0
+              ],
+              "high": [
+                9,
+                0,
+                8
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to Drupal 7.74 / 8.8.12 / 8.9.10 / 9.0.9 or later."
+        }
+      ]
+    },
+    {
+      "product": "Joomla",
+      "source": "body",
+      "regex": "(?i)Joomla!?\\s*(\\d+\\.\\d+(?:\\.\\d+)?)",
+      "rules": [
+        {
+          "cve": "CVE-2023-23752",
+          "severity": "high",
+          "title": "Joomla webservice access check bypass (CVE-2023-23752)",
+          "ranges": [
+            {
+              "low": [
+                4,
+                0,
+                0
+              ],
+              "high": [
+                4,
+                2,
+                8
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to Joomla 4.2.8 or later."
+        },
+        {
+          "cve": "CVE-2015-8562",
+          "severity": "critical",
+          "title": "Joomla PHP object injection RCE (CVE-2015-8562)",
+          "ranges": [
+            {
+              "low": [
+                1,
+                5,
+                0
+              ],
+              "high": [
+                3,
+                4,
+                5
+              ]
+            }
+          ],
+          "remediation": "Upgrade to Joomla 3.4.6 or later."
+        }
+      ]
+    },
+    {
+      "product": "AngularJS",
+      "source": "body",
+      "regex": "(?i)angular(?:\\.min)?[-/.]?(?:v)?(\\d+\\.\\d+\\.\\d+)",
+      "rules": [
+        {
+          "cve": "CVE-2020-7676",
+          "severity": "medium",
+          "title": "AngularJS sanitizer XSS (CVE-2020-7676)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                1,
+                8,
+                0
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to AngularJS 1.8.0 or later."
+        },
+        {
+          "cve": "CVE-2019-14863",
+          "severity": "medium",
+          "title": "AngularJS XSS (CVE-2019-14863)",
+          "ranges": [
+            {
+              "low": [
+                1,
+                0,
+                0
+              ],
+              "high": [
+                1,
+                4,
+                14
+              ]
+            }
+          ],
+          "remediation": "Upgrade to AngularJS 1.5.0-beta.0 or later."
+        }
+      ]
+    },
+    {
+      "product": "lodash",
+      "source": "body",
+      "regex": "(?i)lodash[-/.]?(?:v)?(\\d+\\.\\d+\\.\\d+)",
+      "rules": [
+        {
+          "cve": "CVE-2021-23337",
+          "severity": "high",
+          "title": "lodash template command injection (CVE-2021-23337)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                4,
+                17,
+                21
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to lodash 4.17.21 or later."
+        },
+        {
+          "cve": "CVE-2020-8203",
+          "severity": "high",
+          "title": "lodash prototype pollution (CVE-2020-8203)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                4,
+                17,
+                20
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to lodash 4.17.20 or later."
+        },
+        {
+          "cve": "CVE-2019-10744",
+          "severity": "high",
+          "title": "lodash prototype pollution (CVE-2019-10744)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                4,
+                17,
+                12
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to lodash 4.17.12 or later."
+        }
+      ]
+    },
+    {
+      "product": "Moment.js",
+      "source": "body",
+      "regex": "(?i)moment(?:\\.min)?[-/.]?(?:v)?(\\d+\\.\\d+\\.\\d+)",
+      "rules": [
+        {
+          "cve": "CVE-2022-24785",
+          "severity": "high",
+          "title": "Moment.js path traversal (CVE-2022-24785)",
+          "ranges": [
+            {
+              "low": [
+                1,
+                0,
+                1
+              ],
+              "high": [
+                2,
+                29,
+                2
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to Moment.js 2.29.2 or later."
+        },
+        {
+          "cve": "CVE-2022-31129",
+          "severity": "high",
+          "title": "Moment.js ReDoS (CVE-2022-31129)",
+          "ranges": [
+            {
+              "low": [
+                2,
+                18,
+                0
+              ],
+              "high": [
+                2,
+                29,
+                4
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to Moment.js 2.29.4 or later."
+        }
+      ]
+    },
+    {
+      "product": "Handlebars",
+      "source": "body",
+      "regex": "(?i)handlebars(?:\\.min)?[-/.]?(?:v)?(\\d+\\.\\d+\\.\\d+)",
+      "rules": [
+        {
+          "cve": "CVE-2021-23369",
+          "severity": "critical",
+          "title": "Handlebars RCE (CVE-2021-23369)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                4,
+                7,
+                7
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to Handlebars 4.7.7 or later."
+        },
+        {
+          "cve": "CVE-2019-19919",
+          "severity": "critical",
+          "title": "Handlebars prototype pollution RCE (CVE-2019-19919)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                4,
+                3,
+                0
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to Handlebars 4.3.0 or later."
+        }
+      ]
+    },
+    {
+      "product": "Axios",
+      "source": "body",
+      "regex": "(?i)axios[-/.]?(?:v)?(\\d+\\.\\d+\\.\\d+)",
+      "rules": [
+        {
+          "cve": "CVE-2023-45857",
+          "severity": "medium",
+          "title": "Axios XSRF token leakage (CVE-2023-45857)",
+          "ranges": [
+            {
+              "low": [
+                1,
+                0,
+                0
+              ],
+              "high": [
+                1,
+                5,
+                1
+              ]
+            }
+          ],
+          "remediation": "Upgrade to Axios 1.6.0 or later."
+        },
+        {
+          "cve": "CVE-2021-3749",
+          "severity": "high",
+          "title": "Axios ReDoS (CVE-2021-3749)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                0,
+                21,
+                1
+              ]
+            }
+          ],
+          "remediation": "Upgrade to Axios 0.21.2 or later."
+        }
+      ]
+    },
+    {
+      "product": "DOMPurify",
+      "source": "body",
+      "regex": "(?i)dompurify[-/.]?(?:v)?(\\d+\\.\\d+\\.\\d+)",
+      "rules": [
+        {
+          "cve": "CVE-2024-45801",
+          "severity": "high",
+          "title": "DOMPurify nesting-based mXSS (CVE-2024-45801)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                2,
+                5,
+                4
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                3,
+                0,
+                0
+              ],
+              "high": [
+                3,
+                1,
+                3
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to DOMPurify 2.5.4 / 3.1.3 or later."
+        },
+        {
+          "cve": "CVE-2024-47875",
+          "severity": "high",
+          "title": "DOMPurify nesting-based mXSS (CVE-2024-47875)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                2,
+                5,
+                0
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                3,
+                0,
+                0
+              ],
+              "high": [
+                3,
+                1,
+                3
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to DOMPurify 2.5.0 / 3.1.3 or later."
+        }
+      ]
+    },
+    {
+      "product": "OpenSSL",
+      "source": "headers",
+      "regex": "(?i)OpenSSL/(\\d+\\.\\d+\\.\\d+[a-z]*)",
+      "rules": [
+        {
+          "cve": "CVE-2022-0778",
+          "severity": "high",
+          "title": "OpenSSL BN_mod_sqrt infinite loop (CVE-2022-0778)",
+          "ranges": [
+            {
+              "low": [
+                1,
+                0,
+                2,
+                0
+              ],
+              "high": [
+                1,
+                0,
+                2,
+                679
+              ]
+            },
+            {
+              "low": [
+                1,
+                1,
+                0,
+                0
+              ],
+              "high": [
+                1,
+                1,
+                1,
+                13
+              ]
+            },
+            {
+              "low": [
+                3,
+                0,
+                0,
+                0
+              ],
+              "high": [
+                3,
+                0,
+                2,
+                0
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to OpenSSL 1.0.2zd / 1.1.1n / 3.0.2 or later."
+        },
+        {
+          "cve": "CVE-2021-3711",
+          "severity": "critical",
+          "title": "OpenSSL SM2 decryption buffer overflow (CVE-2021-3711)",
+          "ranges": [
+            {
+              "low": [
+                1,
+                1,
+                1,
+                0
+              ],
+              "high": [
+                1,
+                1,
+                1,
+                12
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to OpenSSL 1.1.1l or later."
+        },
+        {
+          "cve": "CVE-2014-0160",
+          "severity": "high",
+          "title": "OpenSSL Heartbleed (CVE-2014-0160)",
+          "ranges": [
+            {
+              "low": [
+                1,
+                0,
+                1,
+                0
+              ],
+              "high": [
+                1,
+                0,
+                1,
+                6
+              ]
+            }
+          ],
+          "remediation": "Upgrade to OpenSSL 1.0.1g or later."
+        }
+      ]
+    },
+    {
+      "product": "Atlassian Jira",
+      "source": "body",
+      "regex": "(?i)(?:Atlassian Jira|jira\\.version[^0-9]{0,40})\\s*(\\d+\\.\\d+\\.\\d+)",
+      "rules": [
+        {
+          "cve": "CVE-2020-14179",
+          "severity": "medium",
+          "title": "Jira custom field/SLA information disclosure (CVE-2020-14179)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                8,
+                5,
+                8
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                8,
+                6,
+                0
+              ],
+              "high": [
+                8,
+                11,
+                1
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to Jira Server/Data Center 8.5.8 / 8.11.1 or later."
+        },
+        {
+          "cve": "CVE-2020-14181",
+          "severity": "medium",
+          "title": "Jira user enumeration (CVE-2020-14181)",
+          "ranges": [
+            {
+              "low": [
+                0,
+                0,
+                0
+              ],
+              "high": [
+                7,
+                13,
+                6
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                8,
+                0,
+                0
+              ],
+              "high": [
+                8,
+                5,
+                7
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                8,
+                6,
+                0
+              ],
+              "high": [
+                8,
+                12,
+                0
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to Jira Server/Data Center 7.13.6 / 8.5.7 / 8.12.0 or later."
+        },
+        {
+          "cve": "CVE-2019-11581",
+          "severity": "critical",
+          "title": "Jira Server template injection (CVE-2019-11581)",
+          "ranges": [
+            {
+              "low": [
+                4,
+                4,
+                0
+              ],
+              "high": [
+                7,
+                6,
+                14
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                7,
+                7,
+                0
+              ],
+              "high": [
+                7,
+                13,
+                5
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                8,
+                0,
+                0
+              ],
+              "high": [
+                8,
+                0,
+                3
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                8,
+                1,
+                0
+              ],
+              "high": [
+                8,
+                1,
+                2
+              ],
+              "high_exclusive": true
+            },
+            {
+              "low": [
+                8,
+                2,
+                0
+              ],
+              "high": [
+                8,
+                2,
+                3
+              ],
+              "high_exclusive": true
+            }
+          ],
+          "remediation": "Upgrade to Jira Server 7.6.14 / 7.13.5 / 8.0.3 / 8.1.2 / 8.2.3 or later."
+        }
+      ]
+    }
+  ]
+}
