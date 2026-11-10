@@ -81,6 +81,31 @@ def match_item(item: dict[str, Any], version: str) -> bool:
     return False
 
 
+def component_filter(name: str, strict_react_core: bool = False) -> str | None:
+    """Return the concrete component a dependency name refers to.
+
+    NVD groups React core, react-dom/server, and the react-server-dom-*
+    packages under one CPE. A manifest lists them separately, so matching
+    the CPE alone over-reports. ``None`` means "no component filter".
+    """
+    needle = name.strip().lower()
+    if needle.startswith("react-server-dom"):
+        return "react-server-dom-*"
+    if needle in ("react-dom", "react-dom-server", "react-dom/server"):
+        return "react-dom/server"
+    if needle == "react" and strict_react_core:
+        return ""
+    return None
+
+
+def filter_component(items: list[dict[str, Any]], name: str,
+                     strict_react_core: bool = False) -> list[dict[str, Any]]:
+    wanted = component_filter(name, strict_react_core)
+    if wanted is None:
+        return items
+    return [item for item in items if item.get("component", "") == wanted]
+
+
 def lookup(pkg: dict[str, Any], version: str) -> list[dict[str, Any]]:
     found = [item for item in pkg["items"] if match_item(item, version)]
     found.sort(key=lambda i: (SEVERITY_ORDER.get(i["severity"], 9),
@@ -220,7 +245,8 @@ def print_manifest(matrix: dict[str, Any], path: Path, as_json: bool) -> int:
                          "constraint": constraint, "version": None,
                          "matches": [], "note": "no concrete version in constraint"})
             continue
-        matches = [format_item(i) for i in lookup(pkg, version)]
+        matches = [format_item(i) for i in filter_component(
+            lookup(pkg, version), name, strict_react_core=True)]
         rows.append({
             "package": pkg["package"],
             "dependency": name,
@@ -289,7 +315,8 @@ def main() -> int:
         print(f"unknown package: {args.package}", file=sys.stderr)
         print("use --list-packages to see the supported names", file=sys.stderr)
         return 2
-    matches = [format_item(i) for i in lookup(pkg, args.version)]
+    matches = [format_item(i) for i in filter_component(
+        lookup(pkg, args.version), args.package)]
     if args.format == "json":
         print(json.dumps({
             "package": pkg["package"],
