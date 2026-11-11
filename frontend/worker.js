@@ -1,3 +1,4 @@
+// SECURITY NOTICE (2026-11-10): Any secrets previously committed to this file have been REVOKED by the developer and are NO LONGER VALID. Do not use them.
 // WebProbe Workers proxy — the ONLY place the browser's scans go.
 //
 // The frontend calls this Worker same-origin (/api/*) with NO credential.
