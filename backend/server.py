@@ -105,7 +105,21 @@ def validate_public_url(raw_url: str) -> None:
     if not _is_public_hostname(parsed.hostname):
         raise HTTPException(status_code=400, detail="URL resolves to a private or loopback address")
 
-REPORTS_DIR = os.path.abspath(os.environ.get("WEBPROBE_REPORTS_DIR", "reports"))
+_BASE_DIR = Path(__file__).resolve().parent
+_FRONTEND_CANDIDATES = [_BASE_DIR.parent / "frontend" / "dist", _BASE_DIR / "frontend" / "dist"]
+FRONTEND_DIR = next((p for p in _FRONTEND_CANDIDATES if (p / "index.html").is_file()), _FRONTEND_CANDIDATES[0])
+WEBPROBE_CLI = _BASE_DIR / "webprobe.py"
+
+def _resolve_reports_dir() -> str:
+    env_dir = os.environ.get("WEBPROBE_REPORTS_DIR", "").strip()
+    if env_dir:
+        return os.path.abspath(env_dir)
+    project_scans = _BASE_DIR.parent / "reports" / "scans"
+    if project_scans.parent.is_dir():
+        return str(project_scans.resolve())
+    return str((_BASE_DIR / "reports" / "scans").resolve())
+
+REPORTS_DIR = _resolve_reports_dir()
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
 # Cloudflare R2 configuration (optional free-tier report persistence)
@@ -118,10 +132,77 @@ R2_BUCKET_NAME = os.environ.get("R2_BUCKET_NAME")
 SCANS: Dict[str, Dict[str, Any]] = {}
 _SCAN_LOCK = threading.RLock()
 _PROCESSES: Dict[str, subprocess.Popen] = {}
-_BASE_DIR = Path(__file__).resolve().parent
-_FRONTEND_CANDIDATES = [_BASE_DIR.parent / "frontend" / "dist", _BASE_DIR / "frontend" / "dist"]
-FRONTEND_DIR = next((p for p in _FRONTEND_CANDIDATES if (p / "index.html").is_file()), _FRONTEND_CANDIDATES[0])
-WEBPROBE_CLI = _BASE_DIR / "webprobe.py"
+
+
+def _persist_scan_entry(scan_id: str) -> None:
+    """Save scan metadata entry to REPORTS_DIR / {scan_id}.meta.json."""
+    try:
+        with _SCAN_LOCK:
+            entry = SCANS.get(scan_id)
+            if not entry:
+                return
+            data = dict(entry)
+        meta_path = os.path.join(REPORTS_DIR, f"{scan_id}.meta.json")
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except Exception:
+        pass
+
+
+def _load_persisted_scans() -> None:
+    """Discover and load saved scan records from REPORTS_DIR into SCANS memory."""
+    if not os.path.isdir(REPORTS_DIR):
+        return
+
+    with _SCAN_LOCK:
+        # 1. Load *.meta.json files
+        for fname in os.listdir(REPORTS_DIR):
+            if fname.endswith(".meta.json"):
+                scan_id = fname[:-10]
+                meta_path = os.path.join(REPORTS_DIR, fname)
+                try:
+                    with open(meta_path, "r", encoding="utf-8") as f:
+                        meta = json.load(f)
+                    if isinstance(meta, dict) and "scan_id" in meta:
+                        SCANS[scan_id] = meta
+                except Exception:
+                    continue
+
+        # 2. Discover any report JSON files (*.json) that lack a meta file
+        for fname in os.listdir(REPORTS_DIR):
+            if fname.endswith(".json") and not fname.endswith(".meta.json") and not fname.endswith(".sarif.json"):
+                scan_id = fname[:-5]
+                if scan_id in SCANS:
+                    continue
+                json_path = os.path.join(REPORTS_DIR, fname)
+                try:
+                    with open(json_path, "r", encoding="utf-8") as f:
+                        report_data = json.load(f)
+                    if not isinstance(report_data, dict):
+                        continue
+                    findings = report_data.get("findings", [])
+                    metadata = report_data.get("metadata", {})
+                    summary = {
+                        sev: sum(1 for finding in findings if finding.get("severity", "").lower() == sev)
+                        for sev in ("critical", "high", "medium", "low", "info")
+                    }
+                    mtime = os.path.getmtime(json_path)
+                    SCANS[scan_id] = {
+                        "scan_id": scan_id,
+                        "url": metadata.get("target") or report_data.get("target", "unknown"),
+                        "profile": metadata.get("profile", "full"),
+                        "engine": report_data.get("engine", "webprobe"),
+                        "status": "completed",
+                        "findings_count": len(findings),
+                        "severity_summary": summary,
+                        "created_at": mtime,
+                        "started_at": mtime,
+                        "ended_at": mtime,
+                        "duration_seconds": report_data.get("duration", 0),
+                    }
+                    _persist_scan_entry(scan_id)
+                except Exception:
+                    continue
 
 
 def _get_r2_client():
@@ -328,6 +409,7 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
             return
         entry["status"] = "running"
         entry["started_at"] = time.time()
+        _persist_scan_entry(scan_id)
 
     url = req_data["url"]
     repo = req_data.get("repo", "")
@@ -410,6 +492,7 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
             else:
                 entry["status"] = "failed"
                 completed = False
+            _persist_scan_entry(scan_id)
         if completed:
             _upload_to_r2(json_path, f"reports/{scan_id}.json")
             _upload_to_r2(md_path, f"reports/{scan_id}.md")
@@ -423,6 +506,7 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
                 entry["error"] = str(exc)
             entry["ended_at"] = time.time()
             entry["duration_seconds"] = round(entry["ended_at"] - entry["started_at"], 2)
+            _persist_scan_entry(scan_id)
     if callback:
         _send_webhook_notification(callback, {
             "scan_id": scan_id,
@@ -443,6 +527,7 @@ def _run_webprobe_job(scan_id: str, req_data: Dict[str, Any]) -> None:
             return
         entry["status"] = "running"
         entry["started_at"] = time.time()
+        _persist_scan_entry(scan_id)
 
     url = req_data["url"]
     profile = req_data.get("profile", "full")
@@ -525,6 +610,7 @@ def _run_webprobe_job(scan_id: str, req_data: Dict[str, Any]) -> None:
                 entry["status"] = "failed"
                 entry["exit_code"] = returncode
                 completed = False
+            _persist_scan_entry(scan_id)
 
         if completed:
             # Backup reports to Cloudflare R2 if configured.
@@ -541,6 +627,7 @@ def _run_webprobe_job(scan_id: str, req_data: Dict[str, Any]) -> None:
                 entry["error"] = str(exc)
             entry["ended_at"] = time.time()
             entry["duration_seconds"] = round(entry["ended_at"] - entry["started_at"], 2)
+            _persist_scan_entry(scan_id)
 
     if callback:
         _send_webhook_notification(callback, {
@@ -728,6 +815,7 @@ def start_scan(req: ScanRequest, bg_tasks: BackgroundTasks, _key: None = Depends
             "findings_count": 0,
             "severity_summary": {},
         }
+        _persist_scan_entry(scan_id)
 
     bg_tasks.add_task(_run_scanner_job, scan_id, req.model_dump())
 
@@ -772,6 +860,7 @@ def abort_scan(scan_id: str, _key: None = Depends(require_api_key)) -> Dict[str,
         entry["ended_at"] = time.time()
         if entry.get("started_at"):
             entry["duration_seconds"] = round(entry["ended_at"] - entry["started_at"], 2)
+        _persist_scan_entry(scan_id)
         return {"scan_id": scan_id, "status": "aborted"}
 
 
@@ -824,6 +913,12 @@ def list_scans(request: Request, limit: int = Query(50, ge=1, le=1000), x_api_ke
     items.sort(key=lambda x: x.get("created_at", 0), reverse=True)
     return items[:limit]
 
+
+@app.on_event("startup")
+def _startup():
+    _load_persisted_scans()
+
+_load_persisted_scans()
 
 # The browser uses same-origin /api URLs. Keep the original endpoints for CLI
 # clients and deployments that already depend on them.
