@@ -285,9 +285,22 @@ def _send_webhook_notification(callback_url: str, payload: Dict[str, Any]) -> No
         pass
 
 
-def _run_kagesec(scan_id: str, url: str, log_file, redact: bool):
-    """Run `kagesec scan` in a per-scan workdir; return (findings, ok)."""
+class EngineResult(tuple):
+    """2-tuple (findings, succeeded) with an optional reason attribute for backward compatibility."""
+    def __new__(cls, findings, succeeded, reason=None):
+        return super().__new__(cls, (findings, succeeded))
+
+    def __init__(self, findings, succeeded, reason=None):
+        self.reason = reason
+
+
+def _run_kagesec(scan_id: str, url: str, log_file, redact: bool) -> EngineResult:
+    """Run `kagesec scan` in a per-scan workdir; return EngineResult(findings, ok, reason)."""
     binary = engines.engine_binary("kagesec")
+    if not binary:
+        msg = "kagesec binary not found"
+        log_file.write(f"[kagesec] {msg}\n")
+        return EngineResult([], False, msg)
     workdir = os.path.join(REPORTS_DIR, f"{scan_id}-kagesec")
     os.makedirs(workdir, exist_ok=True)
     cmd = [
@@ -300,24 +313,44 @@ def _run_kagesec(scan_id: str, url: str, log_file, redact: bool):
     ]
     if not engines.kagesec_browser_available():
         cmd.append("--no-browser")
-    with _SCAN_LOCK:
-        _PROCESSES[scan_id] = subprocess.Popen(
-            cmd, stdout=log_file, stderr=subprocess.STDOUT, text=True, cwd=workdir
-        )
-        proc = _PROCESSES[scan_id]
-    returncode = proc.wait()
+    try:
+        with _SCAN_LOCK:
+            _PROCESSES[scan_id] = subprocess.Popen(
+                cmd, stdout=log_file, stderr=subprocess.STDOUT, text=True, cwd=workdir
+            )
+            proc = _PROCESSES[scan_id]
+        returncode = proc.wait()
+    except Exception as exc:
+        msg = f"KageSec execution failed: {exc}"
+        log_file.write(f"[kagesec] {msg}\n")
+        return EngineResult([], False, msg)
+
     raw_path = os.path.join(workdir, "reports", "kagesec_report.json")
-    if returncode == 0 and os.path.exists(raw_path):
-        with open(raw_path, "r", encoding="utf-8") as f:
-            return engines.normalize_kagesec(json.load(f), redact=redact), True
-    return [], False
+    if os.path.exists(raw_path):
+        try:
+            with open(raw_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return EngineResult(engines.normalize_kagesec(data, redact=redact), True, None)
+        except Exception as exc:
+            msg = f"Failed to parse kagesec report: {exc}"
+            log_file.write(f"[kagesec] {msg}\n")
+            return EngineResult([], False, msg)
+
+    msg = f"KageSec exited with code {returncode} and no report was generated"
+    log_file.write(f"[kagesec] {msg}\n")
+    return EngineResult([], False, msg)
 
 
-def _run_openosint(scan_id: str, url: str, log_file):
-    """Run OpenOSINT direct tools (no AI, no key) for a domain; return (findings, ok)."""
+def _run_openosint(scan_id: str, url: str, log_file) -> EngineResult:
+    """Run OpenOSINT direct tools (no AI, no key) for a domain; return EngineResult(findings, ok, reason)."""
     binary = engines.engine_binary("openosint")
+    if not binary:
+        msg = "openosint binary not found"
+        log_file.write(f"[openosint] {msg}\n")
+        return EngineResult([], False, msg)
     host = urlsplit(url).hostname or url
     outputs = []
+    errors = []
     for subcommand in ("dns", "whois", "rdap", "exposure", "dorks"):
         try:
             proc = subprocess.run(
@@ -325,14 +358,23 @@ def _run_openosint(scan_id: str, url: str, log_file):
                 capture_output=True, text=True, timeout=120,
             )
         except Exception as exc:
-            log_file.write(f"[openosint] {subcommand} failed: {exc}\n")
+            err = f"[openosint] {subcommand} failed: {exc}"
+            log_file.write(f"{err}\n")
+            errors.append(err)
             continue
         log_file.write(proc.stdout or "")
         log_file.write(proc.stderr or "")
         data = engines._openosint_json(proc.stdout or "")
+        if not data and proc.stderr:
+            data = engines._openosint_json(proc.stderr)
         if data:
             outputs.append(data)
-    return engines.normalize_openosint(outputs), bool(outputs)
+        elif proc.returncode != 0:
+            errors.append(f"{subcommand} returned exit code {proc.returncode}")
+    findings = engines.normalize_openosint(outputs)
+    succeeded = bool(outputs)
+    reason = None if succeeded else ("; ".join(errors) if errors else "No outputs parsed from openosint subcommands")
+    return EngineResult(findings, succeeded, reason)
 
 
 def _resolve_argus_target(repo: str, scan_id: str, log_file):
@@ -362,19 +404,28 @@ def _resolve_argus_target(repo: str, scan_id: str, log_file):
     return path, None
 
 
-def _run_argus(scan_id: str, repo: str, log_file):
-    """Run `argus scan all` on a repo; return (findings, ok)."""
+def _run_argus(scan_id: str, repo: str, log_file) -> EngineResult:
+    """Run `argus scan all` on a repo; return EngineResult(findings, ok, reason)."""
     binary = engines.engine_binary("argus")
+    if not binary:
+        msg = "argus binary not found"
+        log_file.write(f"[argus] {msg}\n")
+        return EngineResult([], False, msg)
     workdir = os.path.join(REPORTS_DIR, f"{scan_id}-argus")
     os.makedirs(workdir, exist_ok=True)
     sarif_path = os.path.join(workdir, "argus.sarif")
-    target_path, clone_dir = _resolve_argus_target(repo, scan_id, log_file)
+    try:
+        target_path, clone_dir = _resolve_argus_target(repo, scan_id, log_file)
+    except Exception as exc:
+        msg = f"Could not resolve argus target: {exc}"
+        log_file.write(f"[argus] {msg}\n")
+        return EngineResult([], False, msg)
     try:
         cmd = [binary, "scan", "all", target_path, "--format", "sarif", "-o", sarif_path, "--fail-on", "never"]
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600, env=engines.argus_scan_env())
         log_file.write(proc.stdout or "")
         log_file.write(proc.stderr or "")
-        if proc.returncode == 0 and os.path.exists(sarif_path):
+        if os.path.exists(sarif_path):
             with open(sarif_path, "r", encoding="utf-8") as f:
                 findings = engines.normalize_sarif(json.load(f), engine="argus")
             # Bandit B101 ("assert used") fires on every assert in the test
@@ -383,8 +434,14 @@ def _run_argus(scan_id: str, repo: str, log_file):
             # the scan workdir for anyone who wants the full list.
             kept = [f for f in findings if f.get("extra", {}).get("rule_id") != "bandit/B101"]
             log_file.write(f"[argus] {len(findings) - len(kept)} bandit/B101 (assert-used) findings excluded as noise.\n")
-            return kept, True
-        return [], False
+            return EngineResult(kept, True, None)
+        msg = f"Argus exited with code {proc.returncode} and no SARIF output was generated"
+        log_file.write(f"[argus] {msg}\n")
+        return EngineResult([], False, msg)
+    except Exception as exc:
+        msg = f"Argus execution failed: {exc}"
+        log_file.write(f"[argus] {msg}\n")
+        return EngineResult([], False, msg)
     finally:
         if clone_dir:
             shutil.rmtree(clone_dir, ignore_errors=True)
@@ -411,7 +468,7 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
         entry["started_at"] = time.time()
         _persist_scan_entry(scan_id)
 
-    url = req_data["url"]
+    url = req_data.get("url", "")
     repo = req_data.get("repo", "")
     target = url or repo
     profile = req_data.get("profile", "full")
@@ -423,51 +480,124 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
     log_path = os.path.join(REPORTS_DIR, f"{scan_id}.log")
     findings: list = []
     ran: list = []
+    engine_breakdown: Dict[str, Any] = {}
     ok = False
     try:
         # WebProbe first, on its own: it opens the log in "w" mode itself,
         # so a second "w" handle from this function would truncate its output.
         if "webprobe" in names:
             with _SCAN_LOCK:
-                if SCANS[scan_id]["status"] != "aborted":
-                    _run_webprobe_job(scan_id, {**req_data, "engine": "webprobe", "webhook_callback": None})
-                    if os.path.exists(json_path):
-                        with open(json_path, "r", encoding="utf-8") as f:
-                            webprobe_findings = json.load(f).get("findings", [])
-                        for finding in webprobe_findings:
-                            finding.setdefault("engine", "webprobe")
-                        findings.extend(webprobe_findings)
-                        ran.append("webprobe")
-                        ok = True
+                aborted = (SCANS[scan_id]["status"] == "aborted")
+            if not aborted:
+                wp_res = _run_webprobe_job(
+                    scan_id,
+                    {**req_data, "engine": "webprobe", "webhook_callback": None},
+                    is_subjob=True,
+                )
+                wp_found, wp_succeeded = wp_res[0], wp_res[1]
+                wp_reason = getattr(wp_res, "reason", None)
+                with open(log_path, "a", encoding="utf-8") as lf:
+                    lf.write(
+                        f"[engine:webprobe] ran=True succeeded={wp_succeeded} "
+                        f"findings={len(wp_found)} reason={wp_reason or 'none'}\n"
+                    )
+                engine_breakdown["webprobe"] = {
+                    "ran": True,
+                    "succeeded": wp_succeeded,
+                    "findings_count": len(wp_found),
+                    "error": wp_reason,
+                }
+                if wp_succeeded:
+                    for finding in wp_found:
+                        finding.setdefault("engine", "webprobe")
+                    findings.extend(wp_found)
+                    ran.append("webprobe")
+                    ok = True
+
         with open(log_path, "a", encoding="utf-8") as log_file:
             for name in names:
                 if name == "webprobe":
                     continue
                 with _SCAN_LOCK:
                     if SCANS[scan_id]["status"] == "aborted":
+                        log_file.write(f"[{name}] scan aborted before running.\n")
+                        engine_breakdown[name] = {"ran": False, "succeeded": False, "findings_count": 0, "error": "aborted"}
                         break
                 if name == "kagesec":
-                    found, succeeded = _run_kagesec(scan_id, url, log_file, redact)
+                    res = _run_kagesec(scan_id, url, log_file, redact)
+                    found, succeeded = res[0], res[1]
+                    reason = getattr(res, "reason", None)
+                    log_file.write(
+                        f"[engine:kagesec] ran=True succeeded={succeeded} "
+                        f"findings={len(found)} reason={reason or 'none'}\n"
+                    )
+                    engine_breakdown["kagesec"] = {
+                        "ran": True,
+                        "succeeded": succeeded,
+                        "findings_count": len(found),
+                        "error": reason,
+                    }
                     if succeeded:
                         findings.extend(found)
                         ran.append(name)
                         ok = True
                 elif name == "openosint":
-                    found, succeeded = _run_openosint(scan_id, url, log_file)
+                    res = _run_openosint(scan_id, url, log_file)
+                    found, succeeded = res[0], res[1]
+                    reason = getattr(res, "reason", None)
+                    log_file.write(
+                        f"[engine:openosint] ran=True succeeded={succeeded} "
+                        f"findings={len(found)} reason={reason or 'none'}\n"
+                    )
+                    engine_breakdown["openosint"] = {
+                        "ran": True,
+                        "succeeded": succeeded,
+                        "findings_count": len(found),
+                        "error": reason,
+                    }
                     if succeeded:
                         findings.extend(found)
                         ran.append(name)
                         ok = True
                 elif name == "argus":
-                    found, succeeded = _run_argus(scan_id, repo, log_file)
+                    res = _run_argus(scan_id, repo, log_file)
+                    found, succeeded = res[0], res[1]
+                    reason = getattr(res, "reason", None)
+                    log_file.write(
+                        f"[engine:argus] ran=True succeeded={succeeded} "
+                        f"findings={len(found)} reason={reason or 'none'}\n"
+                    )
+                    engine_breakdown["argus"] = {
+                        "ran": True,
+                        "succeeded": succeeded,
+                        "findings_count": len(found),
+                        "error": reason,
+                    }
                     if succeeded:
                         findings.extend(found)
                         ran.append(name)
                         ok = True
+
         findings = engines.dedupe_findings(findings)
         duration = round(time.time() - SCANS[scan_id]["started_at"], 2)
-        report = engines.webprobe_report(target, engine, ran, findings, duration)
+        failed_engines = [n for n in names if not engine_breakdown.get(n, {}).get("succeeded")]
+        partial = bool(failed_engines and ok)
+        note = None
+        if partial:
+            failed_str = ", ".join(failed_engines)
+            note = f"Partial scan results: {failed_str} failed or did not complete."
+
+        report = engines.webprobe_report(
+            target, engine, ran, findings, duration,
+            partial=partial, note=note, breakdown=engine_breakdown,
+        )
         report["metadata"]["profile"] = profile
+        if partial:
+            report["metadata"]["partial"] = True
+            report["metadata"]["note"] = note
+            report["metadata"]["engines_breakdown"] = engine_breakdown
+            report["metadata"]["engine_breakdown"] = engine_breakdown
+
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2)
         with open(md_path, "w", encoding="utf-8") as f:
@@ -488,6 +618,9 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
                 entry["status"] = "completed"
                 entry["findings_count"] = len(findings)
                 entry["severity_summary"] = summary
+                if partial:
+                    entry["partial"] = True
+                    entry["note"] = note
                 completed = True
             else:
                 entry["status"] = "failed"
@@ -515,19 +648,21 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
             "findings_count": entry.get("findings_count", 0),
             "severity_summary": entry.get("severity_summary", {}),
             "duration_seconds": entry.get("duration_seconds", 0),
+            "partial": entry.get("partial", False),
         })
 
 
-def _run_webprobe_job(scan_id: str, req_data: Dict[str, Any]) -> None:
+def _run_webprobe_job(scan_id: str, req_data: Dict[str, Any], is_subjob: bool = False) -> EngineResult:
     """Background task worker that executes the WebProbe scanner subprocess."""
     with _SCAN_LOCK:
         entry = SCANS[scan_id]
         # An assessment can be cancelled before the background worker starts.
         if entry["status"] == "aborted":
-            return
-        entry["status"] = "running"
-        entry["started_at"] = time.time()
-        _persist_scan_entry(scan_id)
+            return EngineResult([], False, "aborted")
+        if not is_subjob:
+            entry["status"] = "running"
+            entry["started_at"] = time.time()
+            _persist_scan_entry(scan_id)
 
     url = req_data["url"]
     profile = req_data.get("profile", "full")
@@ -572,7 +707,7 @@ def _run_webprobe_job(scan_id: str, req_data: Dict[str, Any]) -> None:
         with open(log_path, "w", encoding="utf-8") as log_file:
             with _SCAN_LOCK:
                 if entry["status"] == "aborted":
-                    return
+                    return EngineResult([], False, "aborted")
                 proc = subprocess.Popen(
                     cmd,
                     stdout=log_file,
@@ -587,13 +722,22 @@ def _run_webprobe_job(scan_id: str, req_data: Dict[str, Any]) -> None:
         # This prevents an abort racing with an already-finished subprocess.
         success = returncode == 0 and os.path.exists(json_path)
         findings = []
+        reason = None
         if success:
             with open(json_path, "r", encoding="utf-8") as jf:
                 findings = json.load(jf).get("findings", [])
-            summary = {
-                severity: sum(1 for finding in findings if finding.get("severity", "").lower() == severity)
-                for severity in ("critical", "high", "medium", "low", "info")
-            }
+        else:
+            reason = f"WebProbe CLI exited with code {returncode}"
+
+        if is_subjob:
+            with _SCAN_LOCK:
+                _PROCESSES.pop(scan_id, None)
+            return EngineResult(findings, success, reason)
+
+        summary = {
+            severity: sum(1 for finding in findings if finding.get("severity", "").lower() == severity)
+            for severity in ("critical", "high", "medium", "low", "info")
+        }
 
         with _SCAN_LOCK:
             _PROCESSES.pop(scan_id, None)
@@ -619,25 +763,30 @@ def _run_webprobe_job(scan_id: str, req_data: Dict[str, Any]) -> None:
             _upload_to_r2(sarif_path, f"reports/{scan_id}.sarif")
             _upload_to_r2(log_path, f"reports/{scan_id}.log")
 
+        if callback:
+            _send_webhook_notification(callback, {
+                "scan_id": scan_id,
+                "target": url,
+                "status": entry["status"],
+                "findings_count": entry.get("findings_count", 0),
+                "severity_summary": entry.get("severity_summary", {}),
+                "duration_seconds": entry.get("duration_seconds", 0),
+            })
+
+        return EngineResult(findings, success, reason)
+
     except Exception as exc:
         with _SCAN_LOCK:
             _PROCESSES.pop(scan_id, None)
+            if is_subjob:
+                return EngineResult([], False, str(exc))
             if entry["status"] != "aborted":
                 entry["status"] = "error"
                 entry["error"] = str(exc)
             entry["ended_at"] = time.time()
             entry["duration_seconds"] = round(entry["ended_at"] - entry["started_at"], 2)
             _persist_scan_entry(scan_id)
-
-    if callback:
-        _send_webhook_notification(callback, {
-            "scan_id": scan_id,
-            "target": url,
-            "status": entry["status"],
-            "findings_count": entry.get("findings_count", 0),
-            "severity_summary": entry.get("severity_summary", {}),
-            "duration_seconds": entry.get("duration_seconds", 0),
-        })
+        return EngineResult([], False, str(exc))
 
 
 @api.get("/health", tags=["System"])

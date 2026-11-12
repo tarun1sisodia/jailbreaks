@@ -47,6 +47,11 @@ export interface Scan {
   error?: string
   exit_code?: number
   example?: boolean
+  partial?: boolean
+  fallback?: boolean
+  note?: string
+  engines_breakdown?: Record<string, { ran: boolean; succeeded: boolean; findings_count: number; error?: string | null }>
+  engine_breakdown?: Record<string, { ran: boolean; succeeded: boolean; findings_count: number; error?: string | null }>
 }
 
 export interface ScanRequest {
@@ -125,6 +130,12 @@ export interface Report {
     engines?: string[]
     version?: string
     duration_seconds?: number
+    partial?: boolean
+    fallback?: boolean
+    note?: string
+    engines_breakdown?: Record<string, { ran: boolean; succeeded: boolean; findings_count: number; error?: string | null }>
+    engine_breakdown?: Record<string, { ran: boolean; succeeded: boolean; findings_count: number; error?: string | null }>
+    [key: string]: unknown
   }
   total_findings?: number
   findings: RawFinding[]

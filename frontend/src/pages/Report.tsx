@@ -2,7 +2,7 @@ import '../styles/tables.css'
 import '../styles/pages/report.css'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowRight, ChevronDown, ChevronRight, RefreshCw, Search } from 'lucide-react'
+import { ArrowRight, ChevronDown, ChevronRight, RefreshCw, Search, AlertTriangle } from 'lucide-react'
 import type { Finding, Report as ReportData, Scan, Severity } from '../types'
 import { api, ApiError, errorMessage, saveBlob } from '../lib/api'
 import { exampleReport, exampleScan } from '../lib/examples'
@@ -92,10 +92,36 @@ export function ReportPage() {
   const rerun = `/scans/new?url=${encodeURIComponent(scan.url)}&profile=${encodeURIComponent(scan.profile)}`
 
   return <div className="page standard-page report-page">
-    <div className="report-heading"><div><div className="eyebrow page-eyebrow">{sample ? 'EXAMPLE REPORT' : 'ASSESSMENT REPORT'} <span className="eyebrow-slash">/</span> {id.startsWith('example-') ? 'SAMPLE' : id.slice(0, 8).toUpperCase()}</div><div className="report-title-line"><h1 className="report-target mono" title={scan.url}>{hostOf(scan.url)}</h1><StatusLabel status={scan.status} /></div><p>{scan.profile ? `${profileLabel(scan.profile)} profile` : 'Profile unavailable'} <span>·</span> {scan.created_at ? `Started ${relativeTime(scan.created_at)}` : 'Start time unavailable'}</p></div>
+    <div className="report-heading"><div><div className="eyebrow page-eyebrow">{sample ? 'EXAMPLE REPORT' : 'ASSESSMENT REPORT'} <span className="eyebrow-slash">/</span> {id.startsWith('example-') ? 'SAMPLE' : id.slice(0, 8).toUpperCase()}</div><div className="report-title-line"><h1 className="report-target mono" title={scan.url}>{hostOf(scan.url)}</h1><StatusLabel status={scan.status} /></div><p>{scan.profile ? `${profileLabel(scan.profile)} profile` : 'Profile unavailable'} <span>·</span> {scan.created_at ? `Started ${relativeTime(scan.created_at)}` : 'Start time unavailable'}{report.metadata?.engines && report.metadata.engines.length > 0 && <> <span>·</span> Engines: <span className="mono">{report.metadata.engines.join(', ')}</span></>}</p></div>
       <div className="report-actions"><Link className="button button-secondary" to={rerun}><RefreshCw size={14} /> Re-run</Link><details className="export-menu"><summary className="button button-secondary">Export <ChevronDown size={14} /></summary><div className="export-options"><button onClick={() => void download('json')}>JSON <span>.json</span></button><button onClick={() => void download('md')}>Markdown <span>.md</span></button><button onClick={() => void download('sarif')}>SARIF <span>.sarif</span></button></div></details></div>
     </div>
     {sample && <div className="example-notice report-example"><span className="example-square" /><span>This is an example report, not a real assessment.</span></div>}
+    {(report.metadata?.partial || scan.partial || report.metadata?.fallback || scan.fallback) && (
+      <div className="example-notice report-notice-banner" role="alert" style={{ background: 'rgba(234, 179, 8, 0.12)', borderColor: '#eab308', color: '#fde047', padding: '12px 16px', borderRadius: '6px', margin: '16px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <AlertTriangle size={18} style={{ color: '#eab308', flexShrink: 0 }} />
+        <div>
+          {report.metadata?.fallback || scan.fallback ? (
+            <span><strong>Notice: </strong>Scan ran in fallback mode ({report.metadata?.note || scan.note || 'Full engines were asleep; ran WebProbe only'}). Engines that did not run: kagesec, openosint.</span>
+          ) : (
+            <span>
+              <strong>Partial assessment: </strong>
+              {report.metadata?.note || scan.note || 'Some engines did not complete successfully.'}
+              {(() => {
+                const breakdown = report.metadata?.engines_breakdown || report.metadata?.engine_breakdown
+                let didNotRun: string[] = []
+                if (breakdown) {
+                  didNotRun = Object.entries(breakdown).filter(([_, info]) => !info?.succeeded).map(([name]) => name)
+                } else if (report.metadata?.engine === 'all') {
+                  const ran = new Set(report.metadata?.engines || [])
+                  didNotRun = ['webprobe', 'kagesec', 'openosint'].filter((e) => !ran.has(e))
+                }
+                return didNotRun.length > 0 ? ` Engines that did not run: ${didNotRun.join(', ')}.` : ''
+              })()}
+            </span>
+          )}
+        </div>
+      </div>
+    )}
     <section className="report-summary major-section" aria-label="Report summary">
       <div className="section-prelude"><span className="eyebrow">ASSESSMENT SUMMARY</span><span className="report-summary-id mono">{sample ? 'EXAMPLE DATA' : id.slice(0, 8)}</span></div>
       <div className="summary-values"><div><strong className="mono">{maxScore === null ? '—' : maxScore.toFixed(1)}</strong><span>max CVSS</span></div><i>·</i><div><strong className="mono">{findings.length}</strong><span>findings</span></div><i>·</i><div><strong className="mono">{duration(scan.duration_seconds ?? report.metadata?.duration_seconds)}</strong><span>duration</span></div></div>

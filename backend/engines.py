@@ -253,14 +253,18 @@ def normalize_sarif(data, engine="argus"):
 
 
 def _openosint_json(text):
-    """OpenOSINT --json prints a human line, then a JSON object."""
+    """OpenOSINT --json prints a human line, then a JSON object, sometimes followed by logs."""
     start = text.find("{")
     if start < 0:
         return None
     try:
-        return json.loads(text[start:])
+        obj, _ = json.JSONDecoder().raw_decode(text[start:])
+        return obj
     except json.JSONDecodeError:
-        return None
+        try:
+            return json.loads(text[start:])
+        except json.JSONDecodeError:
+            return None
 
 
 def normalize_openosint(outputs):
@@ -327,7 +331,8 @@ def dedupe_findings(findings):
     seen = set()
     out = []
     for finding in findings:
-        key = (finding.get("title", ""), finding.get("url", ""), finding.get("parameter", ""))
+        param = finding.get("parameter") or finding.get("param") or ""
+        key = (finding.get("title", ""), finding.get("url", ""), param)
         if key in seen:
             continue
         seen.add(key)
@@ -335,16 +340,24 @@ def dedupe_findings(findings):
     return out
 
 
-def webprobe_report(target, engine, engines, findings, duration_seconds):
+def webprobe_report(target, engine, engines, findings, duration_seconds, partial=False, note=None, breakdown=None):
     for index, finding in enumerate(findings):
         finding["id"] = finding.get("id") or f"finding-{index}"
+    meta = {
+        "target": target,
+        "engine": engine,
+        "engines": engines,
+        "duration_seconds": duration_seconds,
+    }
+    if partial:
+        meta["partial"] = True
+    if note:
+        meta["note"] = note
+    if breakdown:
+        meta["engines_breakdown"] = breakdown
+        meta["engine_breakdown"] = breakdown
     return {
-        "metadata": {
-            "target": target,
-            "engine": engine,
-            "engines": engines,
-            "duration_seconds": duration_seconds,
-        },
+        "metadata": meta,
         "findings": findings,
     }
 
