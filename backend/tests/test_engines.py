@@ -252,3 +252,81 @@ def test_run_scanner_job_all_merges_and_handles_failures(monkeypatch, tmp_path):
     assert "[engine:kagesec] ran=True succeeded=True" in log_content
     assert "[engine:openosint] ran=True succeeded=False" in log_content
 
+
+def test_run_scanner_job_all_handles_unavailable_engine_without_silent_skips(monkeypatch, tmp_path):
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    monkeypatch.setattr(server, "REPORTS_DIR", str(reports_dir))
+    # Simulate kagesec binary missing / unavailable on host
+    monkeypatch.setattr(engines, "engine_available", lambda name: name != "kagesec")
+
+    scan_id = "test-all-unavailable-scan"
+    with server._SCAN_LOCK:
+        server.SCANS[scan_id] = {
+            "scan_id": scan_id,
+            "url": "https://example.com",
+            "profile": "quick",
+            "engine": "all",
+            "status": "queued",
+            "created_at": 1000.0,
+            "findings_count": 0,
+            "severity_summary": {},
+        }
+
+    wp_finding = {"title": "WP Finding", "url": "https://example.com", "param": "", "severity": "medium"}
+    osint_finding = {"title": "OSINT Finding", "url": "https://example.com", "param": "", "severity": "info"}
+
+    monkeypatch.setattr(
+        server,
+        "_run_webprobe_job",
+        lambda s_id, req, is_subjob=False: server.EngineResult([dict(wp_finding)], True, None)
+    )
+    monkeypatch.setattr(
+        server,
+        "_run_openosint",
+        lambda s_id, url, log_f: server.EngineResult([dict(osint_finding)], True, None)
+    )
+
+    req_data = {
+        "url": "https://example.com",
+        "engine": "all",
+        "profile": "quick",
+        "redact": True,
+    }
+
+    server._run_scanner_job(scan_id, req_data)
+
+    entry = server.SCANS[scan_id]
+    assert entry["status"] == "completed"
+    assert entry["partial"] is True
+    assert "kagesec" in entry["note"]
+    assert entry["findings_count"] == 2
+
+    import json
+    report_file = reports_dir / f"{scan_id}.json"
+    assert report_file.exists()
+    report = json.loads(report_file.read_text())
+
+    meta = report["metadata"]
+    assert meta["engine"] == "all"
+    assert "webprobe" in meta["engines"]
+    assert "openosint" in meta["engines"]
+    assert "kagesec" not in meta["engines"]
+    assert meta["partial"] is True
+    assert "kagesec" in meta["note"]
+
+    breakdown = meta["engines_breakdown"]
+    assert breakdown["webprobe"]["succeeded"] is True
+    assert breakdown["openosint"]["succeeded"] is True
+    assert breakdown["kagesec"]["ran"] is False
+    assert breakdown["kagesec"]["succeeded"] is False
+    assert "not installed" in breakdown["kagesec"]["error"] or "not found" in breakdown["kagesec"]["error"]
+
+    log_file = reports_dir / f"{scan_id}.log"
+    assert log_file.exists()
+    log_content = log_file.read_text()
+    assert "[engine:webprobe] ran=True succeeded=True" in log_content
+    assert "[engine:kagesec] ran=False succeeded=False" in log_content
+    assert "[engine:openosint] ran=True succeeded=True" in log_content
+
+

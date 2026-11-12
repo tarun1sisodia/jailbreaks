@@ -454,8 +454,8 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
         _run_webprobe_job(scan_id, req_data)
         return
     if engine == "all":
-        names = [name for name in ("webprobe", "kagesec", "openosint") if engines.engine_available(name)]
-        if req_data.get("repo") and engines.engine_available("argus"):
+        names = ["webprobe", "kagesec", "openosint"]
+        if req_data.get("repo"):
             names.append("argus")
     else:
         names = [engine]
@@ -513,6 +513,15 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
                     findings.extend(wp_found)
                     ran.append("webprobe")
                     ok = True
+            else:
+                with open(log_path, "a", encoding="utf-8") as lf:
+                    lf.write("[engine:webprobe] ran=False succeeded=False findings=0 reason=aborted\n")
+                engine_breakdown["webprobe"] = {
+                    "ran": False,
+                    "succeeded": False,
+                    "findings_count": 0,
+                    "error": "aborted",
+                }
 
         with open(log_path, "a", encoding="utf-8") as log_file:
             for name in names:
@@ -520,9 +529,19 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
                     continue
                 with _SCAN_LOCK:
                     if SCANS[scan_id]["status"] == "aborted":
-                        log_file.write(f"[{name}] scan aborted before running.\n")
+                        log_file.write(f"[engine:{name}] ran=False succeeded=False findings=0 reason=aborted\n")
                         engine_breakdown[name] = {"ran": False, "succeeded": False, "findings_count": 0, "error": "aborted"}
                         break
+                if not engines.engine_available(name):
+                    reason = f"{name} binary not found or engine not installed on this host"
+                    log_file.write(f"[engine:{name}] ran=False succeeded=False findings=0 reason={reason}\n")
+                    engine_breakdown[name] = {
+                        "ran": False,
+                        "succeeded": False,
+                        "findings_count": 0,
+                        "error": reason,
+                    }
+                    continue
                 if name == "kagesec":
                     res = _run_kagesec(scan_id, url, log_file, redact)
                     found, succeeded = res[0], res[1]
