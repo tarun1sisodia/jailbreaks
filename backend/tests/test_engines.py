@@ -8,11 +8,30 @@ import os
 
 os.environ["WEBPROBE_API_KEY"] = "test-key"
 
-import engines
-import server
+import pytest
 from fastapi.testclient import TestClient
 
+import engines
+import server
+
 KEY = {"X-API-Key": "test-key"}
+
+
+@pytest.fixture(autouse=True)
+def isolated_reports(monkeypatch, tmp_path):
+    """Keep API tests out of the project's real reports/scans directory."""
+    server.SCANS.clear()
+    server.REMOTE_SCANS.clear()
+    server._PROCESSES.clear()
+    monkeypatch.setattr(server, "REPORTS_DIR", str(tmp_path))
+    yield
+    for process in list(server._PROCESSES.values()):
+        if process.poll() is None:
+            process.terminate()
+            process.wait(timeout=5)
+    server._PROCESSES.clear()
+    server.SCANS.clear()
+    server.REMOTE_SCANS.clear()
 
 
 def test_normalize_kagesec_maps_verified_fields():
@@ -328,5 +347,77 @@ def test_run_scanner_job_all_handles_unavailable_engine_without_silent_skips(mon
     assert "[engine:webprobe] ran=True succeeded=True" in log_content
     assert "[engine:kagesec] ran=False succeeded=False" in log_content
     assert "[engine:openosint] ran=True succeeded=True" in log_content
+
+
+def test_run_scanner_job_all_success_keeps_breakdown_without_partial(monkeypatch, tmp_path):
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir()
+    monkeypatch.setattr(server, "REPORTS_DIR", str(reports_dir))
+    monkeypatch.setattr(engines, "engine_available", lambda name: True)
+
+    scan_id = "test-all-success"
+    with server._SCAN_LOCK:
+        server.SCANS[scan_id] = {
+            "scan_id": scan_id,
+            "url": "https://example.com",
+            "profile": "quick",
+            "engine": "all",
+            "requested_engine": "all",
+            "status": "queued",
+            "created_at": 1000.0,
+            "findings_count": 0,
+            "severity_summary": {},
+        }
+
+    monkeypatch.setattr(
+        server,
+        "_run_webprobe_job",
+        lambda s_id, req, is_subjob=False: server.EngineResult(
+            [{"title": "WebProbe finding", "url": "https://example.com", "parameter": "", "severity": "high"}],
+            True,
+            None,
+        ),
+    )
+    monkeypatch.setattr(
+        server,
+        "_run_kagesec",
+        lambda s_id, url, log_f, redact: server.EngineResult(
+            [{"title": "KageSec finding", "url": "https://example.com/x", "parameter": "q", "severity": "medium"}],
+            True,
+            None,
+        ),
+    )
+    monkeypatch.setattr(
+        server,
+        "_run_openosint",
+        lambda s_id, url, log_f: server.EngineResult(
+            [{"title": "OSINT finding", "url": "https://example.com", "parameter": "", "severity": "info"}],
+            True,
+            None,
+        ),
+    )
+
+    server._run_scanner_job(scan_id, {
+        "url": "https://example.com",
+        "engine": "all",
+        "profile": "quick",
+        "redact": True,
+    })
+
+    entry = server.SCANS[scan_id]
+    assert entry["status"] == "completed"
+    assert "partial" not in entry
+    assert entry["findings_count"] == 3
+
+    import json
+    report = json.loads((reports_dir / f"{scan_id}.json").read_text())
+    meta = report["metadata"]
+    assert meta["engine"] == "all"
+    assert meta["requested_engine"] == "all"
+    assert set(meta["engines"]) == {"webprobe", "kagesec", "openosint"}
+    assert "partial" not in meta
+    assert "note" not in meta
+    assert set(meta["engines_breakdown"]) == {"webprobe", "kagesec", "openosint"}
+    assert all(info["succeeded"] for info in meta["engines_breakdown"].values())
 
 

@@ -25,7 +25,7 @@
 | `Tricks-Web-Pentest` attack categories | 9 |
 | `Tricks-Web-Pentest` exploit/payload source files | 23 |
 | Bypass wordlists | 6 |
-| Backend tests passing | **148** |
+| Backend tests passing | **154** |
 | Known bugs fixed (Phase 1 protocol) | 10 |
 | Git commits in history | 42 |
 | Commits matching security/fix/harden keywords | 12 |
@@ -190,7 +190,7 @@ This is a research/reporting artifact, not a scanner check. It maps package vers
 - **Authz false positives:** `check_rbac_matrix` now only reports sensitive endpoints (admin/account/API/order/etc.) whose anonymous and authenticated bodies differ and whose signed-in view contains identity markers. Public content pages (`/book.html`), identical bodies, and soft-login pages are ignored. Covered by 9 authz tests.
 - **Passive CVE engine:** `check_cve` reads product versions from response headers and page bodies and maps them to published affected ranges from NVD/vendor advisories. It is detection-only — no exploit payload is sent. Current coverage: **25 products / 61 CVE IDs** in `backend/webprobe/data/cve_fingerprints.json`: Apache HTTP Server, PHP, Next.js, ASP.NET Core, .NET, Jenkins, jQuery, Bootstrap, GitLab, Confluence, TeamCity, GeoServer, nginx, Apache Tomcat, WordPress, Drupal, Joomla, AngularJS, lodash, Moment.js, Handlebars, Axios, DOMPurify, OpenSSL, and Atlassian Jira. Ranges support inclusive/exclusive bounds and letter-suffixed versions (OpenSSL 1.0.1f). The PHP CVE-2025-1861 ranges use the vendor advisory because NVD's CPE upper bounds conflict with the fixed releases. `scripts/update_cve_db.py` refreshes the database from NVD with a local cache; `backend/tests/test_cve_db.py` validates its schema.
 - **Framework CVE matrix:** 1,002 NVD CVEs across Next.js (63), React (6), PHP (760), ASP.NET Core (41), and .NET (132), with version ranges, fixed releases, component/endpoint, KEV status, and PoC references. `scripts/framework_cve_lookup.py` matches an exact version or a `package.json`/`composer.json`/`*.csproj` offline. It is a dependency/SBOM lookup, not a remote scanner: these frameworks usually do not expose patch versions in HTTP responses.
-- **Quality:** 10 known Phase-1 bugs fixed; **148 backend tests pass** (~60 s).
+- **Quality:** 10 known Phase-1 bugs fixed; **154 backend tests pass** (~60 s).
 - **Scan engines:** 4 API-selectable (WebProbe, KageSec, OpenOSINT, Argus); VPS/MCP adds TridentChain and SAST Server. KageSec carries 7,400+ CVE templates; Argus orchestrates Semgrep, Bandit, Gitleaks, and Pip-Audit.
 
 ---
@@ -255,7 +255,7 @@ PY
 # 136 8 5 4 9
 
 python3 -m pytest -q
-# 148 passed
+# 154 passed
 
 cd ..
 python3 scripts/secret_scan.py

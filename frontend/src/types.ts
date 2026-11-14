@@ -49,6 +49,9 @@ export interface Scan {
   example?: boolean
   partial?: boolean
   fallback?: boolean
+  requested_engine?: string
+  engine_used?: string
+  remote?: string
   note?: string
   engines_breakdown?: Record<string, { ran: boolean; succeeded: boolean; findings_count: number; error?: string | null }>
   engine_breakdown?: Record<string, { ran: boolean; succeeded: boolean; findings_count: number; error?: string | null }>
@@ -75,6 +78,7 @@ export interface ScanStarted {
   // Set by the proxy when box6 was asleep and the scan fell back to the
   // Render WebProbe engine. Never report a fallback scan as a full-engine scan.
   engine_used?: string
+  requested_engine?: string
   fallback?: boolean
   note?: string
 }
@@ -132,6 +136,8 @@ export interface Report {
     duration_seconds?: number
     partial?: boolean
     fallback?: boolean
+    requested_engine?: string
+    engine_used?: string
     note?: string
     engines_breakdown?: Record<string, { ran: boolean; succeeded: boolean; findings_count: number; error?: string | null }>
     engine_breakdown?: Record<string, { ran: boolean; succeeded: boolean; findings_count: number; error?: string | null }>

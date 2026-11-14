@@ -31,7 +31,8 @@
 //
 // The proxy deliberately does NOT poll box6 on /health or /scans: polling
 // would keep the box awake. It contacts box6 only when a scan, status,
-// report or abort actually needs it.
+// report or abort actually needs it. Box6 scan metadata is mirrored to
+// Render (/scans/mirror) so /scans can list those runs without touching box6.
 
 const DEFAULT_ORIGINS = 'https://jailbreaks.coccoder999.workers.dev,http://localhost:5173'
 const BOX6_ENGINES = {
@@ -103,6 +104,36 @@ function box6Url(env, path) {
   return `${base}${path}${token}`
 }
 
+// Explicitly mark a WebProbe-only fallback. The backend persists these fields
+// with the scan and copies them into report metadata, so the notice survives
+// navigation and a later page refresh.
+export function buildFallbackRequest(body, engine) {
+  return {
+    ...body,
+    engine: 'webprobe',
+    repo: undefined,
+    requested_engine: engine,
+    fallback: true,
+    fallback_note: 'Full engines were asleep, ran WebProbe only.',
+  }
+}
+
+// Merge local Render scans with mirrored box6 metadata without contacting
+// box6. Render is the durable history index; box6 remains the report source.
+export function mergeScanLists(renderScans, remoteScans) {
+  const seen = new Set()
+  const merged = []
+  for (const item of [
+    ...(Array.isArray(renderScans) ? renderScans : []),
+    ...(Array.isArray(remoteScans) ? remoteScans : []),
+  ]) {
+    if (!item || typeof item !== 'object' || !item.scan_id || seen.has(item.scan_id)) continue
+    seen.add(item.scan_id)
+    merged.push(item)
+  }
+  return merged.sort((a, b) => (Number(b.created_at) || 0) - (Number(a.created_at) || 0))
+}
+
 async function fetchWithTimeout(url, init, ms) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), ms)
@@ -167,6 +198,37 @@ async function wakeBox6(env) {
   }
 }
 
+// Store box6 scan metadata on Render so GET /api/scans can show full-engine
+// scans without polling box6. Status/report reads still go to box6; Render's
+// mirrored records are deliberately not registered as local scans.
+async function mirrorRemoteScan(env, scan) {
+  const renderUrl = (env.RENDER_API_URL || '').replace(/\/+$/, '')
+  if (!renderUrl || !env.RENDER_API_KEY || !scan || !scan.scan_id) return
+  const record = {
+    scan_id: scan.scan_id,
+    target: scan.target || scan.url || '',
+    url: scan.url || scan.target || '',
+    profile: scan.profile || 'full',
+    engine: scan.engine || 'all',
+    status: scan.status || 'queued',
+    created_at: scan.created_at || Math.floor(Date.now() / 1000),
+    started_at: scan.started_at,
+    ended_at: scan.ended_at,
+    duration_seconds: scan.duration_seconds || 0,
+    findings_count: scan.findings_count || 0,
+    severity_summary: scan.severity_summary || {},
+    engine_used: scan.engine_used,
+    requested_engine: scan.requested_engine,
+    note: scan.note,
+    fallback: !!scan.fallback,
+  }
+  await upstreamJson(`${renderUrl}/scans/mirror`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-API-Key': env.RENDER_API_KEY },
+    body: JSON.stringify(record),
+  }, 5000)
+}
+
 async function forwardScan(env, body) {
   const engine = body.engine || 'webprobe'
   const renderUrl = (env.RENDER_API_URL || '').replace(/\/+$/, '')
@@ -198,6 +260,9 @@ async function forwardScan(env, body) {
       headers: { 'Content-Type': 'application/json', 'X-API-Key': env.BOX6_API_KEY || '' },
       body: JSON.stringify(body),
     }, 20000)
+    if (res.status >= 200 && res.status < 300 && res.body && typeof res.body === 'object') {
+      await mirrorRemoteScan(env, { ...res.body, engine_used: engine, requested_engine: body.requested_engine || engine })
+    }
     return { status: res.status, body: res.body, engineUsed: engine }
   }
 
@@ -208,6 +273,9 @@ async function forwardScan(env, body) {
       headers: { 'Content-Type': 'application/json', 'X-API-Key': env.BOX6_API_KEY || '' },
       body: JSON.stringify(body),
     }, 20000)
+    if (res.status >= 200 && res.status < 300 && res.body && typeof res.body === 'object') {
+      await mirrorRemoteScan(env, { ...res.body, engine_used: engine, requested_engine: body.requested_engine || engine })
+    }
     return { status: res.status, body: res.body, engineUsed: engine }
   }
 
@@ -228,7 +296,7 @@ async function forwardScan(env, body) {
       engineUsed: engine,
     }
   }
-  const fallbackBody = { ...body, engine: 'webprobe', repo: undefined }
+  const fallbackBody = buildFallbackRequest(body, engine)
   const res = await upstreamJson(`${renderUrl}/scan`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-API-Key': renderKey },
@@ -236,8 +304,9 @@ async function forwardScan(env, body) {
   }, 20000)
   const out = res.body && typeof res.body === 'object' ? res.body : {}
   out.engine_used = 'webprobe'
+  out.requested_engine = engine
   out.fallback = true
-  out.note = 'Full engines were asleep, ran WebProbe only.'
+  out.note = fallbackBody.fallback_note
   return { status: res.status, body: out, engineUsed: 'webprobe' }
 }
 
@@ -255,14 +324,29 @@ async function forwardById(env, request, path, method, body) {
     headers: { 'X-API-Key': env.RENDER_API_KEY || '', ...(body ? { 'Content-Type': 'application/json' } : {}) },
     ...(body ? { body: JSON.stringify(body) } : {}),
   }, 15000)
+  const remoteScan = render.status === 404 && render.body && typeof render.body === 'object' && render.body.remote === 'box6';
   if (render.status !== 404) return render
-  if (!env.BOX6_API_URL || !env.BOX6_API_KEY) return render
-  if (!(await box6Healthy(env))) return render
+  if (!env.BOX6_API_URL || !env.BOX6_API_KEY) {
+    return remoteScan
+      ? { status: 503, body: { detail: 'This scan is stored on the engine box, but the box6 proxy is not configured. Start a new full-engine scan to wake it.' }, headers: render.headers }
+      : render
+  }
+  if (!(await box6Healthy(env))) {
+    return remoteScan
+      ? { status: 503, body: { detail: 'This scan is stored on the engine box, which is asleep. Start a new full-engine scan to wake it, then retry.' }, headers: render.headers }
+      : render
+  }
   const box = await upstreamJson(box6Url(env, path), {
     method,
     headers: { 'X-API-Key': env.BOX6_API_KEY, ...(body ? { 'Content-Type': 'application/json' } : {}) },
     ...(body ? { body: JSON.stringify(body) } : {}),
   }, 15000)
+  // Only persist terminal status changes here; the initial queued record is
+  // mirrored at submit time. Avoid a mirror write on every console poll.
+  if (box.status < 400 && box.body && typeof box.body === 'object' && box.body.scan_id
+      && ['completed', 'failed', 'aborted', 'error'].includes(box.body.status)) {
+    await mirrorRemoteScan(env, { ...box.body, remote: 'box6' })
+  }
   return box.status === 404 ? render : box
 }
 
@@ -336,8 +420,13 @@ export default {
         }
         const missing = requireSecrets(env, ['RENDER_API_KEY'])
         if (missing) return jsonResponse(env, request, missing, 503)
-        const res = await upstreamJson(`${renderUrl}/scans?limit=1000`, { headers: { 'X-API-Key': renderKey, Accept: 'application/json' } }, 15000)
-        return jsonResponse(env, request, res.body, res.status)
+        const [res, remote] = await Promise.all([
+          upstreamJson(`${renderUrl}/scans?limit=1000`, { headers: { 'X-API-Key': renderKey, Accept: 'application/json' } }, 15000),
+          upstreamJson(`${renderUrl}/remote-scans?limit=1000`, { headers: { 'X-API-Key': renderKey, Accept: 'application/json' } }, 15000),
+        ])
+        if (res.status >= 400) return jsonResponse(env, request, res.body, res.status)
+        const scans = mergeScanLists(res.body, remote.status < 400 ? remote.body : [])
+        return jsonResponse(env, request, scans, 200)
       }
 
       if (url.pathname === '/api/scan' && request.method === 'POST') {

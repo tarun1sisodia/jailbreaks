@@ -142,9 +142,12 @@ sequenceDiagram
   {
     "fallback": true,
     "engine_used": "webprobe",
+    "requested_engine": "all",
     "note": "Full engines were asleep, ran WebProbe only."
   }
   ```
+  The fallback fields are sent to Render with the fallback request and persisted in the scan record and report metadata, so the notice survives navigation and refresh.
+- Box 6 scan metadata is mirrored to Render through `POST /api/scans/mirror`; `GET /api/scans` on the Workers proxy merges Render scans with `GET /api/remote-scans`. This makes full-engine scans visible in history without polling or waking Box 6. Status/report reads still go to Box 6, and mirrored records are deliberately excluded from Render's local `/api/scan/{id}` lookup.
 - **Argus** (Code Scanner) has no Render equivalent (it requires local git cloning, Semgrep, Bandit, and Pip-Audit installed only on Box 6). If Box 6 does not wake, Argus returns **HTTP 503** with a clear explanation instead of a silent fallback.
 
 ### D. CORS & SSRF Guardrails

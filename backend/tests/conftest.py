@@ -1,13 +1,24 @@
 """Pytest fixtures: hermetic mock HTTP servers for each vulnerability class."""
 
+import atexit
 import json
+import os
+import shutil
 import socket
+import tempfile
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Callable, Dict, Optional
 
 import pytest
+
+# server.py resolves REPORTS_DIR at import time. Point it at a throwaway
+# directory before any test module imports the server so a test run can never
+# load or create artifacts in the project's real reports/scans directory.
+_REPORTS_DIR = tempfile.mkdtemp(prefix="webprobe-pytest-reports-")
+os.environ["WEBPROBE_REPORTS_DIR"] = _REPORTS_DIR
+atexit.register(lambda: shutil.rmtree(_REPORTS_DIR, ignore_errors=True))
 
 
 class MockHandler(BaseHTTPRequestHandler):

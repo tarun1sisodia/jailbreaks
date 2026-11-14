@@ -8,6 +8,7 @@ import hmac
 import ipaddress
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -130,6 +131,11 @@ R2_BUCKET_NAME = os.environ.get("R2_BUCKET_NAME")
 
 # In-memory scan registry: scan_id -> dict
 SCANS: Dict[str, Dict[str, Any]] = {}
+# Scan metadata for runs that live on box6. The Workers proxy mirrors these
+# here so /api/scans can show full-engine scans without polling/waking box6.
+# They are deliberately NOT put in SCANS: GET /scan/{id} must stay 404 so the
+# proxy knows to fetch the real status/report from box6.
+REMOTE_SCANS: Dict[str, Dict[str, Any]] = {}
 _SCAN_LOCK = threading.RLock()
 _PROCESSES: Dict[str, subprocess.Popen] = {}
 
@@ -205,6 +211,76 @@ def _load_persisted_scans() -> None:
                     continue
 
 
+def _remote_scans_dir() -> str:
+    """Private metadata directory for box6 scans mirrored by the proxy."""
+    path = os.path.join(REPORTS_DIR, "remote-scans")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def _persist_remote_scan(entry: Dict[str, Any]) -> None:
+    try:
+        scan_id = str(entry["scan_id"])
+        path = os.path.join(_remote_scans_dir(), f"{scan_id}.json")
+        tmp_path = path + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(entry, f, indent=2)
+        os.replace(tmp_path, path)
+    except Exception:
+        pass
+
+
+def _load_persisted_remote_scans() -> None:
+    """Reload mirrored box6 scan metadata after a Render restart."""
+    directory = _remote_scans_dir()
+    try:
+        names = os.listdir(directory)
+    except OSError:
+        return
+    with _SCAN_LOCK:
+        for fname in names:
+            if not fname.endswith(".json"):
+                continue
+            try:
+                with open(os.path.join(directory, fname), "r", encoding="utf-8") as f:
+                    entry = json.load(f)
+                if isinstance(entry, dict) and entry.get("scan_id"):
+                    REMOTE_SCANS[str(entry["scan_id"])] = entry
+            except Exception:
+                continue
+
+
+def _request_metadata(entry: Dict[str, Any]) -> Dict[str, Any]:
+    """Metadata the API must preserve for direct and proxy-fallback scans."""
+    meta: Dict[str, Any] = {}
+    requested = entry.get("requested_engine") or entry.get("engine")
+    if requested:
+        meta["requested_engine"] = requested
+    if entry.get("fallback"):
+        meta["fallback"] = True
+        meta["engine_used"] = entry.get("engine_used") or entry.get("engine") or "webprobe"
+        meta["note"] = entry.get("note") or "Requested engines were unavailable; ran WebProbe only."
+    return meta
+
+
+def _annotate_report_metadata(path: str, entry: Dict[str, Any]) -> None:
+    """Add fallback/request metadata to a report written by the CLI."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            return
+        metadata = data.get("metadata")
+        if not isinstance(metadata, dict):
+            metadata = {}
+            data["metadata"] = metadata
+        metadata.update(_request_metadata(entry))
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except Exception:
+        pass
+
+
 def _get_r2_client():
     """Returns a boto3 S3 client configured for Cloudflare R2, or None."""
     if not (R2_ACCOUNT_ID and R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY and R2_BUCKET_NAME):
@@ -262,6 +338,37 @@ class ScanRequest(BaseModel):
     secondary_cookie: Optional[str] = Field(default="", description="Secondary user cookie for IDOR checks")
     admin_cookie: Optional[str] = Field(default="", description="Admin account cookie for authz checks")
     webhook_callback: Optional[str] = Field(default=None, description="Optional webhook URL to notify on completion")
+    # Set by the Workers proxy when the requested engine box was unavailable
+    # and it fell back to the always-on WebProbe backend. These fields are
+    # persisted with the scan and copied into report metadata so the UI does
+    # not lose the fallback notice after navigating away from the POST result.
+    requested_engine: Optional[Literal["webprobe", "kagesec", "openosint", "argus", "all"]] = Field(
+        default=None,
+        description="Engine the caller originally requested, before any proxy fallback",
+    )
+    fallback: bool = Field(default=False, description="True when the proxy fell back to WebProbe")
+    fallback_note: Optional[str] = Field(default=None, description="Human-readable fallback notice from the proxy")
+
+
+class RemoteScanRecord(BaseModel):
+    """Scan metadata mirrored from box6 through the Workers proxy."""
+    scan_id: str = Field(..., min_length=1, max_length=128)
+    target: str = Field(default="")
+    url: str = Field(default="")
+    profile: str = Field(default="full")
+    engine: str = Field(default="all")
+    status: str = Field(default="queued")
+    created_at: float = Field(default=0.0)
+    started_at: Optional[float] = None
+    ended_at: Optional[float] = None
+    duration_seconds: float = Field(default=0.0)
+    findings_count: int = Field(default=0, ge=0)
+    severity_summary: Dict[str, int] = Field(default_factory=dict)
+    error: Optional[str] = None
+    engine_used: Optional[str] = None
+    requested_engine: Optional[str] = None
+    note: Optional[str] = None
+    fallback: bool = False
 
 
 def _send_webhook_notification(callback_url: str, payload: Dict[str, Any]) -> None:
@@ -611,6 +718,7 @@ def _run_scanner_job(scan_id: str, req_data: Dict[str, Any]) -> None:
             partial=partial, note=note, breakdown=engine_breakdown,
         )
         report["metadata"]["profile"] = profile
+        report["metadata"].update(_request_metadata(entry))
         if partial:
             report["metadata"]["partial"] = True
             report["metadata"]["note"] = note
@@ -745,6 +853,8 @@ def _run_webprobe_job(scan_id: str, req_data: Dict[str, Any], is_subjob: bool = 
         if success:
             with open(json_path, "r", encoding="utf-8") as jf:
                 findings = json.load(jf).get("findings", [])
+            # Keep fallback/request metadata in the report written by the CLI.
+            _annotate_report_metadata(json_path, entry)
         else:
             reason = f"WebProbe CLI exited with code {returncode}"
 
@@ -971,38 +1081,63 @@ def start_scan(req: ScanRequest, bg_tasks: BackgroundTasks, _key: None = Depends
         raise HTTPException(status_code=400, detail="Unknown scan profile")
 
     target = req.url.strip() or req.repo.strip()
+    requested_engine = req.requested_engine or req.engine
+    fallback_note = req.fallback_note or "Requested engines were unavailable; ran WebProbe only."
     scan_id = str(uuid.uuid4())
     with _SCAN_LOCK:
-        SCANS[scan_id] = {
+        entry = {
             "scan_id": scan_id,
             "url": target,
             "profile": req.profile,
             "engine": req.engine,
+            "requested_engine": requested_engine,
             "status": "queued",
             "created_at": time.time(),
             "findings_count": 0,
             "severity_summary": {},
         }
+        if req.fallback:
+            entry.update({
+                "fallback": True,
+                "engine_used": req.engine,
+                "note": fallback_note,
+            })
+        SCANS[scan_id] = entry
         _persist_scan_entry(scan_id)
 
     bg_tasks.add_task(_run_scanner_job, scan_id, req.model_dump())
 
-    return {
+    started = {
         "scan_id": scan_id,
         "target": target,
         "profile": req.profile,
         "engine": req.engine,
+        "requested_engine": requested_engine,
         "status": "queued",
         "status_url": f"/scan/{scan_id}",
         "report_url": f"/scan/{scan_id}/report?format=json",
     }
+    if req.fallback:
+        started.update({
+            "fallback": True,
+            "engine_used": req.engine,
+            "note": fallback_note,
+        })
+    return started
 
 
 @api.get("/scan/{scan_id}", tags=["Scans"])
-def get_scan_status(scan_id: str, _key: None = Depends(require_api_key)) -> Dict[str, Any]:
+def get_scan_status(scan_id: str, _key: None = Depends(require_api_key)) -> Any:
     """Retrieve execution status, elapsed time, and summary findings count."""
     with _SCAN_LOCK:
         if scan_id not in SCANS:
+            if scan_id in REMOTE_SCANS:
+                # Tell the proxy this is a real box6 scan, not a typo, while
+                # keeping the 404 that makes it forward the request to box6.
+                return JSONResponse(
+                    status_code=404,
+                    content={"detail": "Scan is stored on box6", "remote": "box6"},
+                )
             raise HTTPException(status_code=404, detail="Scan ID not found")
         return dict(SCANS[scan_id])
 
@@ -1042,6 +1177,14 @@ def get_scan_report(scan_id: str, format: Literal["json", "md", "sarif", "log"] 
                 status_code=202,
                 content={"status": entry["status"], "message": "Scan is still in progress"},
             )
+    elif scan_id in REMOTE_SCANS:
+        # The report file lives on box6. Keep 404 so the Workers proxy
+        # forwards the request, but identify it so the proxy can explain a
+        # sleeping box instead of showing a misleading "not found".
+        return JSONResponse(
+            status_code=404,
+            content={"detail": "Report is stored on box6", "remote": "box6"},
+        )
 
     ext_map = {"json": ".json", "md": ".md", "sarif": ".sarif", "log": ".log"}
     file_path = os.path.join(REPORTS_DIR, f"{scan_id}{ext_map[format]}")
@@ -1067,6 +1210,45 @@ def get_scan_report(scan_id: str, format: Literal["json", "md", "sarif", "log"] 
         return FileResponse(file_path, media_type="application/json", filename=f"webprobe_{scan_id}.sarif")
 
 
+@api.post("/scans/mirror", tags=["Scans"])
+def mirror_remote_scan(record: RemoteScanRecord, _key: None = Depends(require_api_key)) -> Dict[str, Any]:
+    """Upsert metadata for a box6 scan. Called server-side by the Workers
+    proxy; the scan itself is still served by box6. Keeping this separate
+    from SCANS lets /api/scans list the run without making GET /scan/{id}
+    shadow the real box6 status/report lookup."""
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", record.scan_id):
+        raise HTTPException(status_code=400, detail="Invalid scan id")
+    if record.status not in ("queued", "running", "completed", "failed", "aborted", "error", "unknown"):
+        raise HTTPException(status_code=400, detail="Invalid scan status")
+    now = time.time()
+    with _SCAN_LOCK:
+        existing = REMOTE_SCANS.get(record.scan_id, {})
+        update = record.model_dump(exclude_unset=True, exclude_none=True)
+        if not record.created_at:
+            update.pop("created_at", None)
+        entry = {
+            **existing,
+            **update,
+            "remote": "box6",
+        }
+        if not entry.get("created_at"):
+            entry["created_at"] = now
+        if not entry.get("target"):
+            entry["target"] = entry.get("url") or ""
+        REMOTE_SCANS[record.scan_id] = entry
+    _persist_remote_scan(entry)
+    return entry
+
+
+@api.get("/remote-scans", tags=["Scans"])
+def list_remote_scans(limit: int = Query(50, ge=1, le=1000), _key: None = Depends(require_api_key)) -> Any:
+    """Recent box6 scans mirrored by the proxy, newest first."""
+    with _SCAN_LOCK:
+        items = [dict(item) for item in REMOTE_SCANS.values()]
+    items.sort(key=lambda x: x.get("created_at", 0), reverse=True)
+    return items[:limit]
+
+
 @api.get("/scans", tags=["Scans"])
 def list_scans(request: Request, limit: int = Query(50, ge=1, le=1000), x_api_key: Optional[str] = Header(default=None)) -> Any:
     """List recent scans."""
@@ -1085,8 +1267,10 @@ def list_scans(request: Request, limit: int = Query(50, ge=1, le=1000), x_api_ke
 @app.on_event("startup")
 def _startup():
     _load_persisted_scans()
+    _load_persisted_remote_scans()
 
 _load_persisted_scans()
+_load_persisted_remote_scans()
 
 # The browser uses same-origin /api URLs. Keep the original endpoints for CLI
 # clients and deployments that already depend on them.
